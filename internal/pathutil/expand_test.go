@@ -19,7 +19,7 @@ func TestExpand(t *testing.T) {
 		{"", "."},
 		{"~", home},
 		{"~/tmp", filepath.Join(home, "tmp")},
-		{"/tmp", "/tmp"},
+		{"/tmp", filepath.Clean("/tmp")},
 		{"./foo", "foo"},
 	}
 

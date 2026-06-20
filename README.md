@@ -36,13 +36,13 @@ sudo mv nls /usr/local/bin/
 
 ## Output modes
 
-| Context | Behavior |
-|---------|----------|
-| **TTY, no ls flags** | Nushell table, colors, dir size estimates |
-| **TTY + `-l`/`-1`/`-F`/…** | Native `ls` formatting (no table) |
-| **Piped / redirected** | Native `ls` fast path (no stat per file) |
-| **Piped + `-l`/`-F`/…** | Full `ls` flag support |
-| **`--json`** | JSON |
+| Context                    | Behavior                                  |
+| -------------------------- | ----------------------------------------- |
+| **TTY, no ls flags**       | Nushell table, colors, dir size estimates |
+| **TTY + `-l`/`-1`/`-F`/…** | Native `ls` formatting (no table)         |
+| **Piped / redirected**     | Native `ls` fast path (no stat per file)  |
+| **Piped + `-l`/`-F`/…**    | Full `ls` flag support                    |
+| **`--json`**               | JSON                                      |
 
 Nushell styling (table, `LS_COLORS`, purple modified, dir walks) is **TTY-only** with default flags.
 
@@ -80,40 +80,40 @@ nls --json | jq .
 
 POSIX/GNU `ls` flags:
 
-| Flag | Short | Description |
-|------|-------|-------------|
-| `--all` | `-a` | Show hidden entries (including `.` and `..`) |
-| `--almost-all` | `-A` | Show hidden except `.` and `..` |
-| `--long` | `-l` | Long listing format |
-| `--human-readable` | `-h` | Human sizes with `-l` / table |
-| `--one` | `-1` | One file per line |
-| `--recursive` | `-R` | List subdirectories recursively |
-| `--reverse` | `-r` | Reverse sort order |
-| `--time` | `-t` | Sort by modification time |
-| `--access-time` | `-u` | Sort by access time |
-| `--ctime` | `-c` | Sort by change time |
-| `--size` | `-S` | Sort by size |
-| `--extension` | `-X` | Sort by extension |
-| `--unsorted` | `-U` | Do not sort |
-| `--fast` | `-f` | Do not sort (same as `-U`) |
-| `--directory` | `-d` | List directories themselves |
-| `--classify` | `-F` | Append `*`, `/`, `@`, etc. |
-| `--slash` | `-p` | Append `/` to directories |
-| `--ignore-backups` | `-B` | Skip `*~` files |
-| `--dereference` | `-L` | Follow symlinks |
-| `--comma` | `-m` | Comma-separated output |
-| `--quote-name` | `-Q` | Quote names |
-| `--full-time` | | Full timestamps with `-l` |
-| `--group-directories-first` | | Directories before files |
-| `--inode` | `-i` | Show inode with `-l` |
-| `--size-blocks` | `-s` | Show blocks with `-l` |
+| Flag                        | Short | Description                                  |
+| --------------------------- | ----- | -------------------------------------------- |
+| `--all`                     | `-a`  | Show hidden entries (including `.` and `..`) |
+| `--almost-all`              | `-A`  | Show hidden except `.` and `..`              |
+| `--long`                    | `-l`  | Long listing format                          |
+| `--human-readable`          | `-h`  | Human sizes with `-l` / table                |
+| `--one`                     | `-1`  | One file per line                            |
+| `--recursive`               | `-R`  | List subdirectories recursively              |
+| `--reverse`                 | `-r`  | Reverse sort order                           |
+| `--time`                    | `-t`  | Sort by modification time                    |
+| `--access-time`             | `-u`  | Sort by access time                          |
+| `--ctime`                   | `-c`  | Sort by change time                          |
+| `--size`                    | `-S`  | Sort by size                                 |
+| `--extension`               | `-X`  | Sort by extension                            |
+| `--unsorted`                | `-U`  | Do not sort                                  |
+| `--fast`                    | `-f`  | Do not sort (same as `-U`)                   |
+| `--directory`               | `-d`  | List directories themselves                  |
+| `--classify`                | `-F`  | Append `*`, `/`, `@`, etc.                   |
+| `--slash`                   | `-p`  | Append `/` to directories                    |
+| `--ignore-backups`          | `-B`  | Skip `*~` files                              |
+| `--dereference`             | `-L`  | Follow symlinks                              |
+| `--comma`                   | `-m`  | Comma-separated output                       |
+| `--quote-name`              | `-Q`  | Quote names                                  |
+| `--full-time`               |       | Full timestamps with `-l`                    |
+| `--group-directories-first` |       | Directories before files                     |
+| `--inode`                   | `-i`  | Show inode with `-l`                         |
+| `--size-blocks`             | `-s`  | Show blocks with `-l`                        |
 
 `nls`-specific:
 
-| Flag | Description |
-|------|-------------|
-| `--json` | JSON output |
-| `--no-icons` | Disable icons |
+| Flag         | Description    |
+| ------------ | -------------- |
+| `--json`     | JSON output    |
+| `--no-icons` | Disable icons  |
 | `--no-color` | Disable colors |
 
 ## Nerd Font icons

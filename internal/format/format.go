@@ -10,7 +10,7 @@ import (
 func Size(nbytes int64, human bool, approx bool) string {
 	prefix := ""
 	if approx {
-		prefix = "~"
+		prefix = ">" // Safe assumption. Avoids under-estimating size.
 	}
 	if !human {
 		return fmt.Sprintf("%s%d", prefix, nbytes)

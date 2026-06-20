@@ -80,7 +80,9 @@ Both packages are maintained by the author.
 
 ### Homebrew
 
-Coming soon.
+```bash
+brew install nolight132/tap/nls
+```
 
 ### Go
 

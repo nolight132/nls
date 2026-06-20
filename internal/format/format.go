@@ -41,14 +41,7 @@ func humanSize(nbytes int64) string {
 		exp++
 	}
 
-	suffixes := []string{"kB", "MB", "GB", "TB", "PB", "EB"}
-	if exp >= len(suffixes) {
-		exp = len(suffixes) - 1
-		div = 1
-		for range exp + 1 {
-			div *= unit
-		}
-	}
+	suffixes := []string{"KiB", "MiB", "GiB", "TiB", "PiB", "EiB"}
 	suffix := suffixes[exp]
 	return fmt.Sprintf("%.1f %s", float64(nbytes)/float64(div), suffix)
 }

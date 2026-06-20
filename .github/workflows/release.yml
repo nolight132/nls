@@ -1,0 +1,69 @@
+name: Release
+
+on:
+   push:
+      tags:
+         - "v*.*.*"
+
+permissions:
+   contents: write
+
+jobs:
+   build:
+      name: Build release artifacts
+      runs-on: ubuntu-latest
+
+      steps:
+         - name: Checkout
+           uses: actions/checkout@v5
+
+         - name: Setup Go
+           uses: actions/setup-go@v6
+           with:
+              go-version-file: go.mod
+              cache: true
+
+         - name: Build archives
+           shell: bash
+           run: |
+              set -euo pipefail
+
+              version="${GITHUB_REF_NAME}"
+              mkdir -p dist
+
+              targets=(
+                "linux amd64"
+                "linux arm64"
+                "darwin amd64"
+                "darwin arm64"
+                "windows amd64"
+                "windows arm64"
+              )
+
+              for target in "${targets[@]}"; do
+                read -r goos goarch <<<"${target}"
+                name="nls_${version}_${goos}_${goarch}"
+                binary="nls"
+                if [[ "${goos}" == "windows" ]]; then
+                  binary="nls.exe"
+                fi
+
+                CGO_ENABLED=0 GOOS="${goos}" GOARCH="${goarch}" \
+                  go build -trimpath -ldflags "-s -w" -o "dist/${binary}" ./cmd/nls
+
+                if [[ "${goos}" == "windows" ]]; then
+                  (cd dist && zip "${name}.zip" "${binary}")
+                else
+                  tar -C dist -czf "dist/${name}.tar.gz" "${binary}"
+                fi
+
+                rm "dist/${binary}"
+              done
+
+              (cd dist && sha256sum * > checksums.txt)
+
+         - name: Publish GitHub release
+           uses: softprops/action-gh-release@v2
+           with:
+              files: dist/*
+              generate_release_notes: true

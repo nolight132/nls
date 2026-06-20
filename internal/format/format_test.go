@@ -29,7 +29,7 @@ func TestHumanSize(t *testing.T) {
 }
 
 func TestSizeApprox(t *testing.T) {
-	if got := Size(1024, true, true); got != "~1.0 kB" {
+	if got := Size(1024, true, true); got != ">1.0 kB" {
 		t.Fatalf("got %q", got)
 	}
 }

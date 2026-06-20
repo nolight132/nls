@@ -1,138 +1,241 @@
+<div align="center">
+
 # nls
 
-A Nushell-style `ls` for bash, zsh, and fish. `nls` prints directory listings as a clean table with optional icons and colors.
+### neo-ls: a modern `ls` with useful tables
+
+A fast, cross-platform file listing tool that feels familiar in scripts
+and looks beautiful in your terminal.
+
+<br>
+
+`nls` is heavily inspired by Nushell's `ls`.
+
+The original goal was simple: bring Nushell's excellent table-based file listings
+to traditional shells and environments without requiring users to switch to Nushell itself.
+
+</div>
+
+<div align="center">
+<img width="820" height="563" alt="image" src="https://github.com/user-attachments/assets/bf3c69f0-7263-46d3-b0cb-ad319d029a84" />
+</div>
+
+---
+
+## Why nls?
+
+`nls` is not trying to be a full shell, and it is not just another colorful `ls`.
+
+It is a **neo-ls**: a modern file listing command designed around three ideas:
+
+* beautiful tables when you are looking at files interactively
+* practical compatibility when used in pipes and scripts
+* useful defaults, like showing directory sizes without making normal usage slow
+
+Nushell already provides an excellent file listing experience, and much of `nls` is inspired by it.
+
+However, not everyone wants a new shell.
+
+Many users are perfectly happy with bash, zsh, fish, PowerShell, or existing terminal workflows. They want the table layouts, metadata presentation, and overall polish of `nu ls`, but they do not necessarily want Nushell's programming model, pipeline semantics, or compatibility tradeoffs.
+
+For those users, switching shells can sometimes reduce usability rather than improve it, especially when working with existing shell scripts, documentation, and POSIX-oriented tooling.
+
+`nls` exists for people who want the visual experience of modern terminal tools while keeping the workflows they already know.
+
+It works in bash, zsh, fish, Nushell, PowerShell, Windows Terminal, Linux terminals, macOS terminals, and other environments where a normal CLI binary can run.
+
+---
 
 ## Features
 
-- Table columns: `#`, name, type, size, modified (permissions with `-l`)
-- Sorted alphabetically by name
-- Directory sizes estimated by summing contained files when interactive (skipped when piped; prefix `~` if truncated)
-- Hidden files with `-a` / `--all`
-- Human-readable sizes with `-h` / `--human`
-- JSON output with `--json`
-- Nerd Font icons when enabled via `NLS_ICONS=1`
-- Plain one-name-per-line output when piped
-- Colors for directories (blue), symlinks (cyan), executables (green)
+* Nushell-style tables for interactive terminal use
+* Directory sizes shown by default
+* Fast non-TTY behavior for pipes, redirects, and scripts
+* GNU `ls`-like behavior for common workflows
+* Helpful suggestions when flags or arguments are mistyped
+* Optional icons with `NLS_ICONS=1`
+* Colors for files, directories, symlinks, executables, sizes, and timestamps
+* JSON output for structured usage
+* Works on Linux, macOS, and Windows
 
-## Requirements
-
-- Go 1.22+
-- Linux or macOS
+---
 
 ## Install
+
+### Arch Linux (AUR)
+
+Source package:
+
+```bash
+yay -S nls
+```
+
+Prebuilt binary:
+
+```bash
+yay -S nls-bin
+```
+
+Both packages are maintained by the author.
+
+### Homebrew
+
+Coming soon.
+
+### Go
 
 ```bash
 go install github.com/nolight132/nls/cmd/nls@latest
 ```
 
-Or build locally:
+### Build from source
 
 ```bash
 git clone https://github.com/nolight132/nls.git
 cd nls
 go build -o nls ./cmd/nls
+```
+
+Linux/macOS:
+
+```bash
 sudo mv nls /usr/local/bin/
 ```
 
-## Output modes
+Windows PowerShell:
 
-| Context                    | Behavior                                  |
-| -------------------------- | ----------------------------------------- |
-| **TTY, no ls flags**       | Nushell table, colors, dir size estimates |
-| **TTY + `-l`/`-1`/`-F`/…** | Native `ls` formatting (no table)         |
-| **Piped / redirected**     | Native `ls` fast path (no stat per file)  |
-| **Piped + `-l`/`-F`/…**    | Full `ls` flag support                    |
-| **`--json`**               | JSON                                      |
+```powershell
+go build -o nls.exe ./cmd/nls
+```
 
-Nushell styling (table, `LS_COLORS`, purple modified, dir walks) is **TTY-only** with default flags.
-
-Clustered short flags work: `nls -la`, `nls -ltr`, `nls -laR`.
+---
 
 ## Usage
 
 ```bash
-# Current directory (table on TTY)
 nls
-
-# GNU long listing (works when piped)
+nls ~/Downloads
 nls -la
-nls -lah ~/Downloads
-
-# One per line, classify, sort
-nls -1
-nls -F
-nls -lt
-nls -lS
-
-# Recursive
+nls -lah
 nls -R
+nls --json
+```
 
-# Pipe-friendly
+Pipe-friendly:
+
+```bash
 nls | wc -l
-nls -la | grep '\.go$'
 nls -1 ~/bin | xargs -I{} echo {}
-
-# JSON
 nls --json | jq .
 ```
 
-## Flags
-
-POSIX/GNU `ls` flags:
-
-| Flag                        | Short | Description                                  |
-| --------------------------- | ----- | -------------------------------------------- |
-| `--all`                     | `-a`  | Show hidden entries (including `.` and `..`) |
-| `--almost-all`              | `-A`  | Show hidden except `.` and `..`              |
-| `--long`                    | `-l`  | Long listing format                          |
-| `--human-readable`          | `-h`  | Human sizes with `-l` / table                |
-| `--one`                     | `-1`  | One file per line                            |
-| `--recursive`               | `-R`  | List subdirectories recursively              |
-| `--reverse`                 | `-r`  | Reverse sort order                           |
-| `--time`                    | `-t`  | Sort by modification time                    |
-| `--access-time`             | `-u`  | Sort by access time                          |
-| `--ctime`                   | `-c`  | Sort by change time                          |
-| `--size`                    | `-S`  | Sort by size                                 |
-| `--extension`               | `-X`  | Sort by extension                            |
-| `--unsorted`                | `-U`  | Do not sort                                  |
-| `--fast`                    | `-f`  | Do not sort (same as `-U`)                   |
-| `--directory`               | `-d`  | List directories themselves                  |
-| `--classify`                | `-F`  | Append `*`, `/`, `@`, etc.                   |
-| `--slash`                   | `-p`  | Append `/` to directories                    |
-| `--ignore-backups`          | `-B`  | Skip `*~` files                              |
-| `--dereference`             | `-L`  | Follow symlinks                              |
-| `--comma`                   | `-m`  | Comma-separated output                       |
-| `--quote-name`              | `-Q`  | Quote names                                  |
-| `--full-time`               |       | Full timestamps with `-l`                    |
-| `--group-directories-first` |       | Directories before files                     |
-| `--inode`                   | `-i`  | Show inode with `-l`                         |
-| `--size-blocks`             | `-s`  | Show blocks with `-l`                        |
-
-`nls`-specific:
-
-| Flag         | Description    |
-| ------------ | -------------- |
-| `--json`     | JSON output    |
-| `--no-icons` | Disable icons  |
-| `--no-color` | Disable colors |
-
-## Nerd Font icons
-
-Icons are off by default (like Nushell `ls`). Enable with:
+Enable icons:
 
 ```bash
 NLS_ICONS=1 nls
-NLS_ICONS=nerd nls   # Nerd Font glyphs
-NLS_ICONS=emoji nls  # emoji icons
+NLS_ICONS=nerd nls
 ```
+
+---
+
+## Output behavior
+
+| Context                   | Behavior                                      |
+| ------------------------- | --------------------------------------------- |
+| Interactive terminal      | Pretty table output                           |
+| Pipe / redirect / non-TTY | Fast plain output, close to GNU `ls` behavior |
+| `--json`                  | Structured JSON                               |
+| Common `ls` flags         | GNU-like formatting where supported           |
+
+`nls` aims to behave like GNU `ls` in normal pipe/non-TTY usage, but it does not cover every historical edge case yet.
+
+---
+
+## Flags
+
+Common flags:
+
+| Flag                     | Description                             |
+| ------------------------ | --------------------------------------- |
+| `-a`, `--all`            | Show hidden entries                     |
+| `-A`, `--almost-all`     | Show hidden entries except `.` and `..` |
+| `-l`, `--long`           | Long listing format                     |
+| `-h`, `--human-readable` | Human-readable sizes                    |
+| `-1`, `--one`            | One entry per line                      |
+| `-R`, `--recursive`      | Recursive listing                       |
+| `-r`, `--reverse`        | Reverse sort                            |
+| `-t`, `--time`           | Sort by modified time                   |
+| `-S`, `--size`           | Sort by size                            |
+| `-X`, `--extension`      | Sort by extension                       |
+| `-U`, `--unsorted`       | Do not sort                             |
+| `-F`, `--classify`       | Append file type indicators             |
+| `-p`, `--slash`          | Append `/` to directories               |
+| `-L`, `--dereference`    | Follow symlinks                         |
+
+`nls` specific:
+
+| Flag         | Description    |
+| ------------ | -------------- |
+| `--json`     | Output JSON    |
+| `--no-icons` | Disable icons  |
+| `--no-color` | Disable colors |
+
+---
+
+## Icons
+
+Icons are disabled by default.
+
+Enable them with:
+
+```bash
+NLS_ICONS=1 nls
+```
+
+Future versions will include broader file-type icon coverage.
+
+---
 
 ## Colors
 
-`nls` uses an `LS_COLORS`-compatible coloring model:
+`nls` uses terminal-friendly ANSI colors and reads `LS_COLORS` when available.
 
-- Reads `LS_COLORS` when set
-- Falls back to simple theme-friendly ANSI colors for directories, symlinks, and executables
-- Sizes are cyan; modified column is purple
+Default highlights:
+
+* directories
+* symlinks
+* executables
+* sizes
+* modified timestamps
+
+---
+
+## Roadmap
+
+Planned features:
+
+* XDG config file support
+* custom color overrides
+* custom themes
+* alternative layouts
+* more table styles
+* wider file-type icon support
+* better Windows-specific polish
+* more GNU `ls` compatibility where it makes sense
+* optional Git status column
+* optional tree layout
+* more structured output modes
+
+Possible future tools:
+
+* `nfind`
+* `ndu`
+* `nps`
+* `nstat`
+
+The goal is a small suite of modern coreutils-style tools with beautiful interactive output and sane script behavior.
+
+---
 
 ## Development
 
@@ -141,6 +244,39 @@ go fmt ./...
 go test ./...
 go run ./cmd/nls
 ```
+
+Build:
+
+```bash
+go build -o nls ./cmd/nls
+```
+
+---
+
+## Special Thanks
+
+### Nushell
+
+`nls` would not exist without Nushell.
+
+The default table layout, metadata presentation, relative timestamps, and much of the overall user experience are directly inspired by Nushell's `ls`.
+
+The goal of this project is not to reinvent that interface, but to bring a similar experience to people who prefer traditional shells and environments such as bash, zsh, fish, PowerShell, and standard terminals on Linux, macOS, and Windows.
+
+If you like `nls`, you probably like Nushell.
+
+https://www.nushell.sh
+
+### bat
+
+`bat` inspired the core philosophy behind this project.
+
+One of the ideas that made `nls` possible was seeing how `bat` provides a significantly better interactive experience while still remaining useful in pipes, scripts, and other non-interactive environments.
+
+https://github.com/sharkdp/bat
+
+
+---
 
 ## License
 

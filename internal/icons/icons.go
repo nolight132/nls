@@ -12,7 +12,6 @@ type Set int
 
 const (
 	SetNone Set = iota
-	SetEmoji
 	SetNerd
 )
 
@@ -27,9 +26,7 @@ func Resolve(noIcons bool) Set {
 		if nerdFontAvailable() {
 			return SetNerd
 		}
-		return SetEmoji
-	case "emoji":
-		return SetEmoji
+		return SetNone
 	default:
 		return SetNone
 	}
@@ -64,14 +61,10 @@ func nerdFontAvailable() bool {
 
 // For returns the icon for an entry kind.
 func For(kind listing.Kind, set Set) string {
-	switch set {
-	case SetNone:
-		return ""
-	case SetNerd:
+	if set == SetNerd {
 		return nerdIcon(kind)
-	default:
-		return emojiIcon(kind)
 	}
+	return ""
 }
 
 func nerdIcon(kind listing.Kind) string {
@@ -84,18 +77,5 @@ func nerdIcon(kind listing.Kind) string {
 		return "\uf013 "
 	default:
 		return "\uf15b "
-	}
-}
-
-func emojiIcon(kind listing.Kind) string {
-	switch kind {
-	case listing.KindDirectory:
-		return "📁 "
-	case listing.KindSymlink:
-		return "🔗 "
-	case listing.KindExecutable:
-		return "⚙️ "
-	default:
-		return "📄 "
 	}
 }

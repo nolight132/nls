@@ -1,0 +1,19 @@
+# Local build outputs
+/nls
+/bin/
+/dist/
+
+# Go test/build artifacts
+*.test
+*.out
+coverage.out
+
+# Editor and OS noise
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Local environment files
+.env
+.env.*

@@ -12,12 +12,12 @@ func TestHumanSize(t *testing.T) {
 	}{
 		{0, "0 B"},
 		{512, "512 B"},
-		{1024, "1.0 kB"},
-		{1536, "1.5 kB"},
-		{1048576, "1.0 MB"},
-		{1073741824, "1.0 GB"},
-		{1099511627776, "1.0 TB"},
-		{1125899906842624, "1.0 PB"},
+		{1024, "1.0 KiB"},
+		{1536, "1.5 KiB"},
+		{1048576, "1.0 MiB"},
+		{1073741824, "1.0 GiB"},
+		{1099511627776, "1.0 TiB"},
+		{1125899906842624, "1.0 PiB"},
 	}
 
 	for _, tt := range tests {
@@ -29,7 +29,7 @@ func TestHumanSize(t *testing.T) {
 }
 
 func TestSizeApprox(t *testing.T) {
-	if got := Size(1024, true, true); got != ">1.0 kB" {
+	if got := Size(1024, true, true); got != ">1.0 KiB" {
 		t.Fatalf("got %q", got)
 	}
 }

@@ -42,10 +42,7 @@ func estimateDirectorySizes(parent string, entries []Entry) {
 	}
 
 	deadline := time.Now().Add(maxListingEstimate)
-	workers := maxDirWorkers
-	if len(jobs) < workers {
-		workers = len(jobs)
-	}
+	workers := min(len(jobs), maxDirWorkers)
 
 	ch := make(chan job)
 	var wg sync.WaitGroup

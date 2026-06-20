@@ -12,17 +12,17 @@ type rule struct {
 	sequence string
 }
 
-// Styler applies LS_COLORS like Nushell's ls.
+// Styler applies LS_COLORS-compatible filename colors.
 type Styler struct {
 	extRules  []rule
 	typeRules map[string]string
 }
 
-// New reads LS_COLORS or falls back to Nushell's built-in default.
+// New reads LS_COLORS or falls back to a small theme-friendly default.
 func New() *Styler {
 	raw := os.Getenv("LS_COLORS")
 	if raw == "" {
-		raw = nushellDefault
+		raw = defaultColors
 	}
 	return parse(raw)
 }

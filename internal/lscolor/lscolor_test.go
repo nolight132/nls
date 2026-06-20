@@ -6,21 +6,31 @@ import (
 	"github.com/nolight132/nls/internal/listing"
 )
 
-func TestREADMEUsesNushellHighlight(t *testing.T) {
+func TestDefaultRegularFileUsesNoColor(t *testing.T) {
 	s := New()
 	got := s.matchSequence("README.md", listing.KindFile)
-	want := "0;38;5;16;48;5;186"
+	want := "0"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
 
-func TestDirectoryUsesCyan(t *testing.T) {
+func TestDefaultDirectoryUsesSimpleAnsiBlue(t *testing.T) {
 	s := New()
 	got := s.matchSequence("cmd", listing.KindDirectory)
-	want := "0;38;5;81"
+	want := "34"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestDefaultSymlinkAndExecutableUseSimpleAnsi(t *testing.T) {
+	s := New()
+	if got := s.matchSequence("link", listing.KindSymlink); got != "36" {
+		t.Fatalf("symlink: got %q", got)
+	}
+	if got := s.matchSequence("tool", listing.KindExecutable); got != "32" {
+		t.Fatalf("executable: got %q", got)
 	}
 }
 

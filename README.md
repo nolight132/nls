@@ -128,10 +128,10 @@ NLS_ICONS=emoji nls  # emoji icons
 
 ## Colors
 
-`nls` uses the same coloring model as Nushell `ls`:
+`nls` uses an `LS_COLORS`-compatible coloring model:
 
 - Reads `LS_COLORS` when set
-- Falls back to Nushell's built-in default (`README.md` highlight, cyan directories, etc.)
+- Falls back to simple theme-friendly ANSI colors for directories, symlinks, and executables
 - Sizes are cyan; modified column is purple
 
 ## Development

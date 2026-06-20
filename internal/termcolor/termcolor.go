@@ -26,7 +26,7 @@ func New(enabled bool) *Style {
 	return &Style{enabled: enabled, ls: ls}
 }
 
-// Name colors a filename using LS_COLORS (same as Nushell ls).
+// Name colors a filename using LS_COLORS-compatible rules.
 func (s *Style) Name(name string, kind listing.Kind) string {
 	if !s.enabled || s.ls == nil {
 		return name

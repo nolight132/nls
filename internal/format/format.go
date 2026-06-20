@@ -94,7 +94,23 @@ func Modified(t time.Time, now time.Time) string {
 	case diff < 7*24*time.Hour:
 		days := int(diff.Hours() / 24)
 		return fmt.Sprintf("%d days ago", days)
+	case diff < 30*24*time.Hour:
+		weeks := int(diff.Hours() / (24 * 7))
+		if weeks == 1 {
+			return "1 week ago"
+		}
+		return fmt.Sprintf("%d weeks ago", weeks)
+	case diff < 365*24*time.Hour:
+		months := int(diff.Hours() / (24 * 30))
+		if months <= 1 {
+			return "a month ago"
+		}
+		return fmt.Sprintf("%d months ago", months)
 	default:
-		return t.Format("2006-01-02 15:04")
+		years := int(diff.Hours() / (24 * 365))
+		if years <= 1 {
+			return "a year ago"
+		}
+		return fmt.Sprintf("%d years ago", years)
 	}
 }

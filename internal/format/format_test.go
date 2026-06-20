@@ -61,12 +61,27 @@ func TestModifiedRelative(t *testing.T) {
 	if got := Modified(now.Add(-26*time.Hour), now); got != "yesterday" {
 		t.Fatalf("got %q", got)
 	}
+	if got := Modified(now.Add(-14*24*time.Hour), now); got != "2 weeks ago" {
+		t.Fatalf("got %q", got)
+	}
+	if got := Modified(now.Add(-45*24*time.Hour), now); got != "a month ago" {
+		t.Fatalf("got %q", got)
+	}
+	if got := Modified(now.Add(-120*24*time.Hour), now); got != "4 months ago" {
+		t.Fatalf("got %q", got)
+	}
+	if got := Modified(now.Add(-400*24*time.Hour), now); got != "a year ago" {
+		t.Fatalf("got %q", got)
+	}
+	if got := Modified(now.Add(-800*24*time.Hour), now); got != "2 years ago" {
+		t.Fatalf("got %q", got)
+	}
 }
 
-func TestModifiedAbsolute(t *testing.T) {
+func TestModifiedLongAgoStaysRelative(t *testing.T) {
 	now := time.Date(2026, 6, 20, 12, 0, 0, 0, time.UTC)
 	old := time.Date(2026, 1, 1, 8, 30, 0, 0, time.UTC)
-	if got := Modified(old, now); got != "2026-01-01 08:30" {
+	if got := Modified(old, now); got != "5 months ago" {
 		t.Fatalf("got %q", got)
 	}
 }

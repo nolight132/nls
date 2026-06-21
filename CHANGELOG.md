@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.3
+
+- Fixed colored table headers so ANSI styling does not break header alignment.
+
 ## v0.1.2
 
 - Fixed empty path arguments (`nls ""`) so they return a real path error instead of resolving to the current directory.

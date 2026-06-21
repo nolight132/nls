@@ -49,7 +49,7 @@ jobs:
                 fi
 
                 CGO_ENABLED=0 GOOS="${goos}" GOARCH="${goarch}" \
-                  go build -trimpath -ldflags "-s -w" -o "dist/${binary}" ./cmd/nls
+                  go build -trimpath -ldflags "-s -w -X github.com/nolight132/nls/internal/version.Version=${version}" -o "dist/${binary}" ./cmd/nls
 
                 if [[ "${goos}" == "windows" ]]; then
                   (cd dist && zip "${name}.zip" "${binary}")

@@ -10,6 +10,7 @@ import (
 	"github.com/nolight132/nls/internal/listing"
 	"github.com/nolight132/nls/internal/output"
 	"github.com/nolight132/nls/internal/pathutil"
+	"github.com/nolight132/nls/internal/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -55,6 +56,7 @@ func Root() *cobra.Command {
 		Use:           "nls [path...]",
 		Short:         "List directory contents",
 		Long:          "nls lists files and directories with Nushell-style columns for use in non-Nu shells.",
+		Version:       version.String(),
 		Args:          cobra.ArbitraryArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -100,6 +102,7 @@ func Root() *cobra.Command {
 	cmd.Flags().BoolVar(&cfg.NoIcons, "no-icons", false, "disable icons")
 	cmd.Flags().BoolVar(&cfg.NoColor, "no-color", false, "disable colors")
 	cmd.Flags().BoolVar(&cfg.JSON, "json", false, "output JSON")
+	cmd.Flags().BoolP("version", "", false, "version for nls")
 	configureHelp(cmd)
 
 	return cmd
@@ -113,7 +116,7 @@ func configureHelp(cmd *cobra.Command) {
 		"quote-name", "full-time", "group-directories-first", "inode", "size-blocks",
 	)
 	markGroup(cmd, "Plain-output layout flags", "one", "comma")
-	markGroup(cmd, "nls presentation flags", "json", "no-icons", "no-color", "help")
+	markGroup(cmd, "nls presentation flags", "json", "no-icons", "no-color", "help", "version")
 
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		out := cmd.OutOrStdout()

@@ -1,8 +1,25 @@
 package cli
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 )
+
+func TestVersionFlag(t *testing.T) {
+	cmd := Root()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"--version"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got := out.String(); !strings.Contains(got, "nls version ") {
+		t.Fatalf("version output = %q", got)
+	}
+}
 
 func TestUseTableAllowsListingFlagsOnTTY(t *testing.T) {
 	cfg := &Config{Long: true, Recursive: true, SortTime: true, Inode: true}

@@ -30,6 +30,14 @@ func LsSize(nbytes int64, human bool, approx bool) string {
 	return prefix + humanLsSize(nbytes)
 }
 
+// LsTotalSize formats the block total line for GNU ls-compatible output.
+func LsTotalSize(nbytes int64, human bool) string {
+	if !human {
+		return fmt.Sprintf("%d", nbytes)
+	}
+	return humanLsTotalSize(nbytes)
+}
+
 // LsBlockSize formats 1K block counts for GNU ls -s-compatible columns.
 func LsBlockSize(blocks int64, human bool) string {
 	if !human {
@@ -66,7 +74,7 @@ func humanSize(nbytes int64) string {
 	return fmt.Sprintf("%.1f %s", float64(nbytes)/float64(div), suffix)
 }
 
-func humanLsSize(nbytes int64) string {
+func humanLsTotalSize(nbytes int64) string {
 	const unit = 1024
 	if nbytes < unit {
 		return fmt.Sprintf("%d", nbytes)
@@ -85,6 +93,23 @@ func humanLsSize(nbytes int64) string {
 		return fmt.Sprintf("%.0f%s", value, suffixes[exp])
 	}
 	return fmt.Sprintf("%.1f%s", value, suffixes[exp])
+}
+
+func humanLsSize(nbytes int64) string {
+	const unit = 1024
+	if nbytes < unit {
+		return fmt.Sprintf("%d", nbytes)
+	}
+
+	div := int64(unit)
+	exp := 0
+	for n := nbytes / unit; n >= unit && exp < 5; n /= unit {
+		div *= unit
+		exp++
+	}
+
+	suffixes := []string{"K", "M", "G", "T", "P", "E"}
+	return fmt.Sprintf("%.1f%s", float64(nbytes)/float64(div), suffixes[exp])
 }
 
 func humanLsBlockSize(nbytes int64) string {

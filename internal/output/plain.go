@@ -30,7 +30,7 @@ func renderPlain(w io.Writer, blocks []listing.Block, opts Options) error {
 		if block.Directory && (opts.Plain == PlainLong || opts.ShowBlocks) {
 			total := blockTotal(block.Entries)
 			if opts.Human {
-				if _, err := fmt.Fprintf(w, "total %s\n", format.LsSize(total*1024, true, false)); err != nil {
+				if _, err := fmt.Fprintf(w, "total %s\n", format.LsTotalSize(total*1024, true)); err != nil {
 					return err
 				}
 			} else if _, err := fmt.Fprintf(w, "total %d\n", total); err != nil {

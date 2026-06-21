@@ -161,6 +161,10 @@ func childPath(dir, name string) string {
 }
 
 func readDirAt(dir string, opts Options) ([]Entry, error) {
+	if opts.Sort.Field == SortByNone {
+		return readDirAtUnsorted(dir, opts)
+	}
+
 	entries, err := readDirEntries(dir, opts.Sort.Field != SortByNone)
 	if err != nil {
 		return nil, err
@@ -193,6 +197,35 @@ func readDirAt(dir string, opts Options) ([]Entry, error) {
 		estimateDirectorySizes(dir, out)
 	}
 	sortEntries(out, opts.Sort)
+	return out, nil
+}
+
+func readDirAtUnsorted(dir string, opts Options) ([]Entry, error) {
+	names, err := readDirNamesUnsorted(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]Entry, 0, len(names))
+	for _, name := range names {
+		if !includeName(name, opts) {
+			continue
+		}
+		full := childPath(dir, name)
+		info, err := statPath(full, opts.Dereference)
+		if err != nil {
+			return nil, fmt.Errorf("stat %q: %w", name, err)
+		}
+		entry, err := entryFromInfo(full, name, info, opts)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, entry)
+	}
+
+	if opts.EstimateDirSizes {
+		estimateDirectorySizes(dir, out)
+	}
 	return out, nil
 }
 

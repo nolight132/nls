@@ -74,23 +74,35 @@ func FastListNames(dir string, opts Options) ([]string, error) {
 		return []string{filepath.Clean(dir)}, nil
 	}
 
-	entries, err := readDirEntries(dir, opts.Sort.Field != SortByNone)
-	if err != nil {
-		return nil, err
-	}
-
-	names := make([]string, 0, len(entries))
-	for _, e := range entries {
-		if includeName(e.Name(), opts) {
-			names = append(names, e.Name())
+	var names []string
+	if opts.Sort.Field == SortByNone {
+		rawNames, err := readDirNamesUnsorted(dir)
+		if err != nil {
+			return nil, err
+		}
+		names = make([]string, 0, len(rawNames))
+		for _, name := range rawNames {
+			if includeName(name, opts) {
+				names = append(names, name)
+			}
+		}
+	} else {
+		entries, err := readDirEntries(dir, true)
+		if err != nil {
+			return nil, err
+		}
+		names = make([]string, 0, len(entries))
+		for _, e := range entries {
+			if includeName(e.Name(), opts) {
+				names = append(names, e.Name())
+			}
 		}
 	}
 
-	if opts.All {
-		names = append([]string{".", ".."}, names...)
-	}
-
 	if opts.Sort.Field != SortByNone {
+		if opts.All {
+			names = append([]string{".", ".."}, names...)
+		}
 		sortNames(names, opts.Sort)
 	}
 	return names, nil

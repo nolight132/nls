@@ -27,24 +27,24 @@ type tableColumn struct {
 }
 
 func renderTable(w io.Writer, entries []listing.Entry, opts Options) error {
+	styles := termcolor.New(opts.Color)
 	cols := []tableColumn{
-		{header: "#", align: alignRight},
-		{header: "name", align: alignLeft},
-		{header: "type", align: alignLeft},
-		{header: "size", align: alignRight},
-		{header: "modified", align: alignLeft},
+		{header: styles.Header("#"), align: alignRight},
+		{header: styles.Header("name"), align: alignLeft},
+		{header: styles.Header("type"), align: alignLeft},
+		{header: styles.Header("size"), align: alignRight},
+		{header: styles.Header("modified"), align: alignLeft},
 	}
 	if opts.ShowInode {
-		cols = append(cols, tableColumn{header: "inode", align: alignRight})
+		cols = append(cols, tableColumn{header: styles.Header("inode"), align: alignRight})
 	}
 	if opts.ShowBlocks {
-		cols = append(cols, tableColumn{header: "blocks", align: alignRight})
+		cols = append(cols, tableColumn{header: styles.Header("blocks"), align: alignRight})
 	}
 	if opts.Long {
-		cols = append(cols, tableColumn{header: "permissions", align: alignLeft})
+		cols = append(cols, tableColumn{header: styles.Header("permissions"), align: alignLeft})
 	}
 
-	styles := termcolor.New(opts.Color)
 	now := opts.Now
 	if now.IsZero() {
 		now = time.Now()
@@ -60,7 +60,7 @@ func renderTable(w io.Writer, entries []listing.Entry, opts Options) error {
 		modified = styles.Modified(modified)
 
 		row := []string{
-			strconv.Itoa(i),
+			styles.Index(strconv.Itoa(i)),
 			name,
 			typeLabel(e),
 			styles.Size(format.Size(e.Size, human, e.SizeApprox)),
@@ -166,7 +166,7 @@ func writeHeaderRow(b *strings.Builder, widths []int, cols []tableColumn) {
 			b.WriteRune('│')
 		}
 		align := col.align
-		switch col.header {
+		switch stripANSI(col.header) {
 		case "#", "name", "size", "modified":
 			align = alignCenter
 		}

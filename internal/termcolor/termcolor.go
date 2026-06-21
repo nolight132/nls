@@ -6,7 +6,7 @@ import (
 	"github.com/nolight132/nls/internal/lscolor"
 )
 
-// Style applies Nushell-like ANSI colors.
+// Style applies ANSI colors.
 type Style struct {
 	enabled bool
 	ls      *lscolor.Styler
@@ -26,6 +26,29 @@ func New(enabled bool) *Style {
 	return &Style{enabled: enabled, ls: ls}
 }
 
+// Heading colors the heading text.
+func (s *Style) Heading(value string) string {
+	if !s.enabled {
+		return value
+	}
+	return color.New(color.FgGreen).Sprint(value)
+}
+
+func (s *Style) Header(value string) string {
+	if !s.enabled {
+		return value
+	}
+	return color.New(color.FgGreen).Sprint(value)
+}
+
+// Index colors the index column
+func (s *Style) Index(value string) string {
+	if !s.enabled {
+		return value
+	}
+	return color.New(color.FgGreen).Sprint(value)
+}
+
 // Name colors a filename using LS_COLORS-compatible rules.
 func (s *Style) Name(name string, kind listing.Kind) string {
 	if !s.enabled || s.ls == nil {
@@ -34,7 +57,7 @@ func (s *Style) Name(name string, kind listing.Kind) string {
 	return s.ls.Colorize(name, kind)
 }
 
-// Size colors the size column (Nushell filesize: cyan).
+// Size colors the size column
 func (s *Style) Size(value string) string {
 	if !s.enabled {
 		return value
@@ -42,7 +65,7 @@ func (s *Style) Size(value string) string {
 	return color.New(color.FgCyan).Sprint(value)
 }
 
-// Modified colors the modified column (Nushell datetime: purple).
+// Modified colors the modified column
 func (s *Style) Modified(value string) string {
 	if !s.enabled || value == "-" {
 		return value

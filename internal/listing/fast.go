@@ -18,6 +18,9 @@ func NeedsFullMetadata(opts Options) bool {
 		return true
 	}
 	s := opts.Sort
+	if s.DirsFirst {
+		return true
+	}
 	if s.Field == SortByTime || s.Field == SortBySize || s.Field == SortByExtension {
 		return true
 	}
@@ -68,10 +71,10 @@ func FastListNames(dir string, opts Options) ([]string, error) {
 		return nil, err
 	}
 	if !info.IsDir() {
-		return []string{filepath.Base(dir)}, nil
+		return []string{filepath.Clean(dir)}, nil
 	}
 
-	entries, err := os.ReadDir(dir)
+	entries, err := readDirEntries(dir, opts.Sort.Field != SortByNone)
 	if err != nil {
 		return nil, err
 	}
@@ -94,9 +97,10 @@ func FastListNames(dir string, opts Options) ([]string, error) {
 }
 
 func sortNames(names []string, sort SortOptions) {
+	nameCmp := newNameComparer()
 	for i := 1; i < len(names); i++ {
 		j := i
-		for j > 0 && compareNames(names[j-1], names[j], sort) > 0 {
+		for j > 0 && compareNamesWithComparer(names[j-1], names[j], sort, nameCmp) > 0 {
 			names[j-1], names[j] = names[j], names[j-1]
 			j--
 		}
@@ -104,12 +108,11 @@ func sortNames(names []string, sort SortOptions) {
 }
 
 func compareNames(a, b string, sort SortOptions) int {
-	cmp := 0
-	if a < b {
-		cmp = -1
-	} else if a > b {
-		cmp = 1
-	}
+	return compareNamesWithComparer(a, b, sort, newNameComparer())
+}
+
+func compareNamesWithComparer(a, b string, sort SortOptions, names nameComparer) int {
+	cmp := names.compare(a, b)
 	if sort.Reverse {
 		cmp = -cmp
 	}

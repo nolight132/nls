@@ -20,17 +20,21 @@ const (
 
 // Entry is a single directory listing row.
 type Entry struct {
-	Name        string
-	Kind        Kind
-	Size        int64
-	SizeApprox  bool
-	Modified    time.Time
-	Accessed    time.Time
-	Changed     time.Time
-	Permissions string
-	LinkTarget  string
-	Inode       uint64
-	Blocks      int64
+	Name          string
+	Kind          Kind
+	Size          int64
+	SizeApprox    bool
+	Modified      time.Time
+	Accessed      time.Time
+	Changed       time.Time
+	Permissions   string
+	LinkTarget    string
+	LinkTargetDir bool
+	Inode         uint64
+	Blocks        int64
+	Links         uint64
+	Owner         string
+	Group         string
 }
 
 func formatPermissions(mode fs.FileMode) string {
@@ -92,11 +96,19 @@ func ClassifySuffix(kind Kind, classify, dirSlash bool) string {
 	}
 }
 
-// DisplayName formats a name for output with optional link target.
-func DisplayName(e Entry, classify, dirSlash, quote bool) string {
+// DisplayName formats a name for output.
+func DisplayName(e Entry, classify, dirSlash, quote, showLinkTarget bool) string {
 	name := e.Name
-	if e.Kind == KindSymlink && e.LinkTarget != "" {
-		name = fmt.Sprintf("%s -> %s", e.Name, e.LinkTarget)
+	if showLinkTarget && e.Kind == KindSymlink && e.LinkTarget != "" {
+		target := e.LinkTarget
+		if e.LinkTargetDir && classify {
+			target += "/"
+		}
+		name = fmt.Sprintf("%s -> %s", e.Name, target)
+		if quote {
+			return fmt.Sprintf("%q", name)
+		}
+		return name
 	}
 	name += ClassifySuffix(e.Kind, classify, dirSlash)
 	if quote {

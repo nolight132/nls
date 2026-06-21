@@ -34,7 +34,7 @@ func TestFastListNamesFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(names) != 1 || names[0] != "file.txt" {
+	if len(names) != 1 || names[0] != path {
 		t.Fatalf("got %v", names)
 	}
 }

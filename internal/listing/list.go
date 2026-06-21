@@ -28,60 +28,103 @@ type Options struct {
 	Sort             SortOptions
 }
 
+type operand struct {
+	raw     string
+	path    string
+	display string
+	info    os.FileInfo
+	entry   Entry
+}
+
 // List resolves paths into output blocks.
 func List(paths []string, opts Options) ([]Block, error) {
 	if len(paths) == 0 {
 		paths = []string{"."}
 	}
 
-	var blocks []Block
+	operands := make([]operand, 0, len(paths))
 	for _, raw := range paths {
 		path := ResolvePath(raw, opts.ResolveAbs)
+		displayPath := filepath.Clean(raw)
 
 		info, err := statPath(path, opts.Dereference)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", raw, err)
 		}
-
-		if !info.IsDir() {
-			entry, err := entryFromInfo(path, filepath.Base(path), info, opts)
-			if err != nil {
-				return nil, err
-			}
-			blocks = append(blocks, Block{Entries: []Entry{entry}})
-			continue
+		entry, err := entryFromInfo(path, displayPath, info, opts)
+		if err != nil {
+			return nil, err
 		}
+		operands = append(operands, operand{raw: raw, path: path, display: displayPath, info: info, entry: entry})
+	}
 
-		if opts.Directory {
-			entry, err := entryFromInfo(path, filepath.Base(path), info, opts)
-			if err != nil {
-				return nil, err
-			}
-			blocks = append(blocks, Block{Entries: []Entry{entry}})
-			continue
+	if len(operands) == 1 {
+		op := operands[0]
+		if !op.info.IsDir() || opts.Directory {
+			return []Block{{Entries: []Entry{op.entry}}}, nil
 		}
-
 		if opts.Recursive {
-			rec, err := listRecursive(path, opts)
+			rec, err := listRecursive(op.path, opts)
 			if err != nil {
-				return nil, fmt.Errorf("%s: %w", raw, err)
+				return nil, fmt.Errorf("%s: %w", op.raw, err)
+			}
+			return rec, nil
+		}
+		entries, err := readDirAt(op.path, opts)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op.raw, err)
+		}
+		return []Block{{Entries: entries, Directory: true}}, nil
+	}
+
+	var files []Entry
+	var dirs []operand
+	for _, op := range operands {
+		if !op.info.IsDir() || opts.Directory {
+			files = append(files, op.entry)
+			continue
+		}
+		dirs = append(dirs, op)
+	}
+	sortEntries(files, opts.Sort)
+	sortOperands(dirs, opts.Sort)
+
+	var blocks []Block
+	if len(files) > 0 {
+		blocks = append(blocks, Block{Entries: files})
+	}
+	for _, op := range dirs {
+		if opts.Recursive {
+			rec, err := listRecursive(op.path, opts)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", op.raw, err)
 			}
 			blocks = append(blocks, rec...)
 			continue
 		}
 
-		entries, err := readDirAt(path, opts)
+		entries, err := readDirAt(op.path, opts)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", raw, err)
+			return nil, fmt.Errorf("%s: %w", op.raw, err)
 		}
-		header := ""
-		if len(paths) > 1 {
-			header = path
-		}
-		blocks = append(blocks, Block{Header: header, Entries: entries})
+		blocks = append(blocks, Block{Header: op.path, Entries: entries, Directory: true})
 	}
 
 	return blocks, nil
+}
+
+func sortOperands(operands []operand, sort SortOptions) {
+	if sort.Field == SortByNone {
+		return
+	}
+	names := newNameComparer()
+	for i := 1; i < len(operands); i++ {
+		j := i
+		for j > 0 && compare(operands[j-1].entry, operands[j].entry, sort, names) > 0 {
+			operands[j-1], operands[j] = operands[j], operands[j-1]
+			j--
+		}
+	}
 }
 
 func listRecursive(dir string, opts Options) ([]Block, error) {
@@ -90,7 +133,7 @@ func listRecursive(dir string, opts Options) ([]Block, error) {
 		return nil, err
 	}
 
-	blocks := []Block{{Header: dir + string(os.PathSeparator), Entries: entries}}
+	blocks := []Block{{Header: dir, Entries: entries, Directory: true}}
 	for _, e := range entries {
 		if e.Kind != KindDirectory {
 			continue
@@ -98,7 +141,7 @@ func listRecursive(dir string, opts Options) ([]Block, error) {
 		if e.Name == "." || e.Name == ".." {
 			continue
 		}
-		sub, err := listRecursive(filepath.Join(dir, e.Name), opts)
+		sub, err := listRecursive(childPath(dir, e.Name), opts)
 		if err != nil {
 			if os.IsPermission(err) {
 				continue
@@ -110,8 +153,15 @@ func listRecursive(dir string, opts Options) ([]Block, error) {
 	return blocks, nil
 }
 
+func childPath(dir, name string) string {
+	if dir == "." {
+		return "." + string(os.PathSeparator) + name
+	}
+	return filepath.Join(dir, name)
+}
+
 func readDirAt(dir string, opts Options) ([]Entry, error) {
-	entries, err := os.ReadDir(dir)
+	entries, err := readDirEntries(dir, opts.Sort.Field != SortByNone)
 	if err != nil {
 		return nil, err
 	}
@@ -146,9 +196,21 @@ func readDirAt(dir string, opts Options) ([]Entry, error) {
 	return out, nil
 }
 
+func readDirEntries(dir string, sorted bool) ([]fs.DirEntry, error) {
+	if sorted {
+		return os.ReadDir(dir)
+	}
+	f, err := os.Open(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return f.ReadDir(-1)
+}
+
 func appendDotEntries(dir string, entries []Entry) []Entry {
 	dot := BlockDotEntry(dir, ".")
-	dotdot := BlockDotEntry(filepath.Dir(dir), "..")
+	dotdot := BlockDotEntry(childPath(dir, ".."), "..")
 	return append([]Entry{dot, dotdot}, entries...)
 }
 
@@ -170,7 +232,9 @@ func entryFromInfo(fullPath, name string, info os.FileInfo, opts Options) (Entry
 		Permissions: formatPermissions(info.Mode()),
 		Inode:       inodeOf(info),
 		Blocks:      blocksOf(info),
+		Links:       linksOf(info),
 	}
+	entry.Owner, entry.Group = ownerGroupOf(info)
 
 	mode := info.Mode()
 	switch {
@@ -179,6 +243,9 @@ func entryFromInfo(fullPath, name string, info os.FileInfo, opts Options) (Entry
 		target, err := os.Readlink(fullPath)
 		if err == nil {
 			entry.LinkTarget = target
+		}
+		if targetInfo, err := os.Stat(fullPath); err == nil && targetInfo.IsDir() {
+			entry.LinkTargetDir = true
 		}
 	case info.IsDir():
 		entry.Kind = KindDirectory
@@ -224,12 +291,4 @@ func ReadDir(dir string, opts Options) ([]Entry, error) {
 		return nil, nil
 	}
 	return blocks[0].Entries, nil
-}
-
-func blocksOf(info os.FileInfo) int64 {
-	const blockSize = 512
-	if info.Size() == 0 {
-		return 0
-	}
-	return (info.Size() + blockSize - 1) / blockSize
 }

@@ -60,8 +60,12 @@ func Root() *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg.Paths = args
+			if cfg.FullTime {
+				cfg.Long = true
+			}
 			if unsortedF {
 				cfg.Unsorted = true
+				cfg.All = true
 			}
 			return run(cfg)
 		},
@@ -251,7 +255,7 @@ func buildSort(cfg *Config) listing.SortOptions {
 	switch {
 	case cfg.Unsorted:
 		sort.Field = listing.SortByNone
-	case cfg.SortTime || cfg.SortAccess || cfg.SortChange:
+	case cfg.SortTime || ((cfg.SortAccess || cfg.SortChange) && !cfg.Long):
 		sort.Field = listing.SortByTime
 	case cfg.SortSize:
 		sort.Field = listing.SortBySize

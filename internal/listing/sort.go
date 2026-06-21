@@ -1,7 +1,13 @@
 package listing
 
 import (
+	"os"
+	"strings"
 	"time"
+	"unicode"
+
+	"golang.org/x/text/collate"
+	"golang.org/x/text/language"
 )
 
 // SortField controls entry ordering.
@@ -36,28 +42,23 @@ func sortEntries(entries []Entry, sort SortOptions) {
 	if sort.Field == SortByNone {
 		return
 	}
+	names := newNameComparer()
 
 	for i := 1; i < len(entries); i++ {
 		j := i
-		for j > 0 && compare(entries[j-1], entries[j], sort) > 0 {
+		for j > 0 && compare(entries[j-1], entries[j], sort, names) > 0 {
 			entries[j-1], entries[j] = entries[j], entries[j-1]
 			j--
 		}
 	}
 }
 
-func compare(a, b Entry, sort SortOptions) int {
+func compare(a, b Entry, sort SortOptions, names nameComparer) int {
 	if sort.DirsFirst {
 		switch {
-		case a.Kind == KindDirectory && b.Kind != KindDirectory:
-			if sort.Reverse {
-				return 1
-			}
+		case sortGroupDir(a) && !sortGroupDir(b):
 			return -1
-		case b.Kind == KindDirectory && a.Kind != KindDirectory:
-			if sort.Reverse {
-				return -1
-			}
+		case sortGroupDir(b) && !sortGroupDir(a):
 			return 1
 		}
 	}
@@ -82,23 +83,26 @@ func compare(a, b Entry, sort SortOptions) int {
 	case SortByExtension:
 		ea, eb := extensionKey(a.Name), extensionKey(b.Name)
 		switch {
-		case ea < eb:
+		case names.compare(ea, eb) < 0:
 			cmp = -1
-		case ea > eb:
+		case names.compare(ea, eb) > 0:
 			cmp = 1
 		default:
-			if a.Name < b.Name {
+			if names.compare(a.Name, b.Name) < 0 {
 				cmp = -1
-			} else if a.Name > b.Name {
+			} else if names.compare(a.Name, b.Name) > 0 {
 				cmp = 1
 			}
 		}
 	default:
-		if a.Name < b.Name {
+		if names.compare(a.Name, b.Name) < 0 {
 			cmp = -1
-		} else if a.Name > b.Name {
+		} else if names.compare(a.Name, b.Name) > 0 {
 			cmp = 1
 		}
+	}
+	if cmp == 0 && sort.Field != SortByName {
+		cmp = names.compare(a.Name, b.Name)
 	}
 
 	if sort.Reverse {
@@ -140,4 +144,77 @@ func lastDot(name string) int {
 // EntryTime returns the timestamp used for sorting/display field selection.
 func EntryTime(e Entry, field TimeField) time.Time {
 	return entryTime(e, field)
+}
+
+func sortGroupDir(e Entry) bool {
+	return e.Kind == KindDirectory || e.LinkTargetDir
+}
+
+type nameComparer struct {
+	collator *collate.Collator
+}
+
+func newNameComparer() nameComparer {
+	tag, ok := collationLanguage()
+	if !ok {
+		return nameComparer{}
+	}
+	return nameComparer{collator: collate.New(tag)}
+}
+
+func (c nameComparer) compare(a, b string) int {
+	if c.collator != nil {
+		ak, bk := localeSortKey(a), localeSortKey(b)
+		if cmp := c.collator.CompareString(ak, bk); cmp != 0 {
+			return cmp
+		}
+	}
+	switch {
+	case a < b:
+		return -1
+	case a > b:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func localeSortKey(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if unicode.IsPunct(r) || unicode.IsSymbol(r) {
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+func collationLanguage() (language.Tag, bool) {
+	locale := collationLocale()
+	base := localeBase(locale)
+	if base == "" || base == "C" || base == "POSIX" {
+		return language.Und, false
+	}
+	tag, err := language.Parse(strings.ReplaceAll(base, "_", "-"))
+	if err != nil {
+		return language.Und, true
+	}
+	return tag, true
+}
+
+func collationLocale() string {
+	for _, key := range []string{"LC_ALL", "LC_COLLATE", "LANG"} {
+		if value := os.Getenv(key); value != "" {
+			return value
+		}
+	}
+	return "C"
+}
+
+func localeBase(locale string) string {
+	if i := strings.IndexAny(locale, ".@"); i >= 0 {
+		return locale[:i]
+	}
+	return locale
 }

@@ -84,7 +84,7 @@ func renderTable(w io.Writer, entries []listing.Entry, opts Options) error {
 }
 
 func tableDisplayName(e listing.Entry, opts Options) string {
-	name := listing.DisplayName(e, opts.Classify, opts.DirSlash, opts.QuoteName)
+	name := listing.DisplayName(e, opts.Classify, opts.DirSlash, opts.QuoteName, true)
 	return icons.For(e.Kind, opts.IconSet) + name
 }
 

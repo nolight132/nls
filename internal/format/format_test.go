@@ -28,6 +28,44 @@ func TestHumanSize(t *testing.T) {
 	}
 }
 
+func TestLsSizeHuman(t *testing.T) {
+	tests := []struct {
+		n    int64
+		want string
+	}{
+		{6, "6"},
+		{1024, "1K"},
+		{1536, "1.5K"},
+		{10 * 1024, "10K"},
+		{1048576, "1M"},
+	}
+
+	for _, tt := range tests {
+		got := LsSize(tt.n, true, false)
+		if got != tt.want {
+			t.Errorf("LsSize(%d, true, false) = %q, want %q", tt.n, got, tt.want)
+		}
+	}
+}
+
+func TestLsBlockSizeHuman(t *testing.T) {
+	tests := []struct {
+		blocks int64
+		want   string
+	}{
+		{0, "0"},
+		{4, "4.0K"},
+		{1024, "1.0M"},
+	}
+
+	for _, tt := range tests {
+		got := LsBlockSize(tt.blocks, true)
+		if got != tt.want {
+			t.Errorf("LsBlockSize(%d, true) = %q, want %q", tt.blocks, got, tt.want)
+		}
+	}
+}
+
 func TestSizeApprox(t *testing.T) {
 	if got := Size(1024, true, true); got != ">1.0 KiB" {
 		t.Fatalf("got %q", got)
@@ -58,7 +96,7 @@ func TestModifiedRelative(t *testing.T) {
 	if got := Modified(now.Add(-5*time.Minute), now); got != "5 minutes ago" {
 		t.Fatalf("got %q", got)
 	}
-	if got := Modified(now.Add(-26*time.Hour), now); got != "yesterday" {
+	if got := Modified(now.Add(-26*time.Hour), now); got != "a day ago" {
 		t.Fatalf("got %q", got)
 	}
 	if got := Modified(now.Add(-14*24*time.Hour), now); got != "2 weeks ago" {

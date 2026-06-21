@@ -10,7 +10,8 @@ import (
 // Expand resolves ~ and cleans the path.
 func Expand(raw string) (string, error) {
 	if raw == "" {
-		return ".", nil
+		_, err := os.Lstat(raw)
+		return "", err
 	}
 
 	if raw == "~" || strings.HasPrefix(raw, "~/") {

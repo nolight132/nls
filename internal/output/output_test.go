@@ -122,9 +122,26 @@ func TestRenderClassify(t *testing.T) {
 }
 
 func TestFormatPathErrorLikeLs(t *testing.T) {
-	err := fmt.Errorf("missing: %w", &os.PathError{Op: "lstat", Path: "/tmp/missing", Err: os.ErrNotExist})
+	temp := t.TempDir()
+	oldwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Chdir(oldwd); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	if err := os.Chdir(temp); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = os.Lstat("missing")
+	if err == nil {
+		t.Fatal("expected missing file error")
+	}
 	got := formatError(err, false)
-	want := "nls: cannot access 'missing': File does not exist"
+	want := "nls: missing: No such file or directory"
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}
@@ -172,7 +189,7 @@ func TestFormatPathErrorKeepsRelativeNestedPath(t *testing.T) {
 	abs := filepath.Join(dir, "nested", "targte")
 	err = fmt.Errorf("nested/targte: %w", &os.PathError{Op: "lstat", Path: abs, Err: os.ErrNotExist})
 	got := formatError(err, true)
-	if !strings.Contains(got, "nls: cannot access 'nested/targte'") {
+	if !strings.Contains(got, "nls: nested/targte") {
 		t.Fatalf("did not preserve relative path: %q", got)
 	}
 	if !strings.Contains(got, "Did you mean 'nested/target'?") {

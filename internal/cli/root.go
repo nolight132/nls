@@ -239,11 +239,7 @@ func run(cfg *Config) error {
 		UseTable:   interactive,
 	}
 
-	if err := output.RenderFast(os.Stdout, expanded, listOpts, outOpts); err != nil {
-		output.WriteError(err, isTTY)
-		return err
-	}
-	return nil
+	return output.RenderFast(os.Stdout, expanded, listOpts, outOpts)
 }
 
 func buildSort(cfg *Config) listing.SortOptions {

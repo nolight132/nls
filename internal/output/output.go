@@ -139,7 +139,7 @@ func WriteError(err error, suggest bool) {
 func formatError(err error, suggest bool) string {
 	if pathErr, ok := errors.AsType[*os.PathError](err); ok {
 		path := displayErrorPath(err, pathErr)
-		msg := fmt.Sprintf("nls: cannot access '%s': %s", path, sentenceCase(pathErr.Err.Error()))
+		msg := fmt.Sprintf("nls: %s: %s", path, sentenceCase(pathErr.Err.Error()))
 		if suggest && errors.Is(pathErr.Err, os.ErrNotExist) {
 			if candidate := didYouMean(path); candidate != "" {
 				msg += fmt.Sprintf("\nDid you mean '%s'?", candidate)

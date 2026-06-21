@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.4
+
+- Fixed non-TTY compatibility with GNU `ls` for long output metadata, totals, inode/block columns, locale sorting, unsorted listing, `-f`, `--full-time`, access/ctime sorting, directory grouping, and symlink indicators.
+- Added GNU comparison tests covering name, long, recursive, inode, block, sorting, and directory-grouping output.
+
 ## v0.1.3
 
 - Fixed colored table headers so ANSI styling does not break header alignment.

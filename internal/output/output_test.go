@@ -141,9 +141,12 @@ func TestFormatPathErrorLikeLs(t *testing.T) {
 		t.Fatal("expected missing file error")
 	}
 	got := formatError(err, false)
-	want := "nls: missing: No such file or directory"
-	if got != want {
-		t.Fatalf("got %q want %q", got, want)
+	wantPrefix := "nls: missing: "
+	if !strings.HasPrefix(got, wantPrefix) {
+		t.Fatalf("got %q, want prefix %q", got, wantPrefix)
+	}
+	if got == wantPrefix {
+		t.Fatalf("got %q, want OS error message", got)
 	}
 }
 

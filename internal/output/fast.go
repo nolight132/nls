@@ -19,7 +19,7 @@ func RenderNames(w io.Writer, names []string) error {
 
 // RenderFast uses the minimal path for native ls-compatible piped output.
 func RenderFast(w io.Writer, paths []string, opts listing.Options, outOpts Options) error {
-	if listing.CanFastList(opts) && len(paths) == 1 && outOpts.Plain == PlainOne && !outOpts.JSON {
+	if !outOpts.UseTable && listing.CanFastList(opts) && len(paths) == 1 && outOpts.Plain == PlainOne && !outOpts.JSON {
 		names, err := listing.FastListNames(paths[0], opts)
 		if err != nil {
 			return err

@@ -9,3 +9,7 @@ func fallbackBlocks(info os.FileInfo) int64 {
 	}
 	return (info.Size() + blockSize - 1) / blockSize
 }
+
+func fallbackDiskUsage(info os.FileInfo) int64 {
+	return fallbackBlocks(info) * 1024
+}

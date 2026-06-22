@@ -7,25 +7,31 @@ import (
 	"path/filepath"
 )
 
+const (
+	EstimateDepthMax = iota - 2
+	EstimateDepthOff
+	EstimateDepthBounded
+)
+
 // Options control directory reads.
 type Options struct {
-	All              bool
-	AlmostAll        bool
-	IgnoreBackups    bool
-	Dereference      bool
-	Directory        bool
-	Recursive        bool
-	EstimateDirSizes bool
-	FastPath         bool
-	ResolveAbs       bool
-	LongListing      bool
-	ShowInode        bool
-	ShowBlocks       bool
-	Classify         bool
-	DirSlash         bool
-	QuoteNames       bool
-	Commas           bool
-	Sort             SortOptions
+	All           bool
+	AlmostAll     bool
+	IgnoreBackups bool
+	Dereference   bool
+	Directory     bool
+	Recursive     bool
+	FastPath      bool
+	ResolveAbs    bool
+	LongListing   bool
+	ShowInode     bool
+	ShowBlocks    bool
+	Classify      bool
+	DirSlash      bool
+	QuoteNames    bool
+	Commas        bool
+	EstimateDepth int
+	Sort          SortOptions
 }
 
 type operand struct {
@@ -193,8 +199,8 @@ func readDirAt(dir string, opts Options) ([]Entry, error) {
 		out = appendDotEntriesFast(dir, out, fullMeta)
 	}
 
-	if opts.EstimateDirSizes {
-		estimateDirectorySizes(dir, out)
+	if opts.EstimateDepth != EstimateDepthOff {
+		estimateDirectorySizes(dir, out, opts.EstimateDepth)
 	}
 	sortEntries(out, opts.Sort)
 	return out, nil
@@ -223,8 +229,8 @@ func readDirAtUnsorted(dir string, opts Options) ([]Entry, error) {
 		out = append(out, entry)
 	}
 
-	if opts.EstimateDirSizes {
-		estimateDirectorySizes(dir, out)
+	if opts.EstimateDepth != EstimateDepthOff {
+		estimateDirectorySizes(dir, out, opts.EstimateDepth)
 	}
 	return out, nil
 }

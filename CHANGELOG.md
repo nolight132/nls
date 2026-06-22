@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.5
+
+- Added `--estimate-depth` for directory size estimation: bounded by default in table mode, numeric levels, or `max` for full walks without time limits.
+- Added table-mode guard so bordered output is not skipped when `--estimate-depth` is unset.
+- Added disk-usage-based directory size estimation instead of apparent file size, for sane sizes on `/proc`, sparse images, and similar paths.
+- Added cross-mount directory walks so overlay-backed directories (e.g. Docker, containerd) are included in estimates.
+
 ## v0.1.4
 
 - Fixed non-TTY compatibility with GNU `ls` for long output metadata, totals, inode/block columns, locale sorting, unsorted listing, `-f`, `--full-time`, access/ctime sorting, directory grouping, and symlink indicators.

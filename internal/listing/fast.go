@@ -8,7 +8,7 @@ import (
 
 // NeedsFullMetadata reports whether listing must stat every entry.
 func NeedsFullMetadata(opts Options) bool {
-	if opts.EstimateDirSizes || opts.Recursive || opts.Directory || opts.Dereference {
+	if opts.EstimateDepth > EstimateDepthBounded || opts.EstimateDepth == EstimateDepthMax || opts.Recursive || opts.Directory || opts.Dereference {
 		return true
 	}
 	if opts.All || opts.AlmostAll {

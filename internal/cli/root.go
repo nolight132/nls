@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/nolight132/nls/internal/icons"
@@ -17,34 +18,66 @@ import (
 
 // Config holds parsed CLI flags.
 type Config struct {
-	All         bool
-	AlmostAll   bool
-	Long        bool
-	Human       bool
-	One         bool
-	Recursive   bool
-	Reverse     bool
-	SortTime    bool
-	SortSize    bool
-	SortExt     bool
-	Unsorted    bool
-	Directory   bool
-	Classify    bool
-	DirSlash    bool
-	IgnoreBack  bool
-	Dereference bool
-	Commas      bool
-	QuoteName   bool
-	FullTime    bool
-	DirsFirst   bool
-	Inode       bool
-	Blocks      bool
-	SortAccess  bool
-	SortChange  bool
-	NoIcons     bool
-	NoColor     bool
-	JSON        bool
-	Paths       []string
+	All           bool
+	AlmostAll     bool
+	Long          bool
+	Human         bool
+	One           bool
+	Recursive     bool
+	Reverse       bool
+	SortTime      bool
+	SortSize      bool
+	SortExt       bool
+	Unsorted      bool
+	Directory     bool
+	Classify      bool
+	DirSlash      bool
+	IgnoreBack    bool
+	Dereference   bool
+	Commas        bool
+	QuoteName     bool
+	FullTime      bool
+	DirsFirst     bool
+	Inode         bool
+	Blocks        bool
+	SortAccess    bool
+	SortChange    bool
+	NoIcons       bool
+	NoColor       bool
+	JSON          bool
+	EstimateDepth int
+	EstimateSet   bool
+	Paths         []string
+}
+
+type estimateDepthFlag struct {
+	value *int
+	set   *bool
+}
+
+func (f *estimateDepthFlag) Set(s string) error {
+	*f.set = true
+	if s == "max" {
+		*f.value = listing.EstimateDepthMax
+		return nil
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 0 {
+		return fmt.Errorf("estimate-depth must be a non-negative integer or \"max\"")
+	}
+	*f.value = n
+	return nil
+}
+
+func (f *estimateDepthFlag) String() string {
+	if *f.value == listing.EstimateDepthMax {
+		return "max"
+	}
+	return strconv.Itoa(*f.value)
+}
+
+func (f *estimateDepthFlag) Type() string {
+	return "depth"
 }
 
 // Root returns the root cobra command.
@@ -102,6 +135,12 @@ func Root() *cobra.Command {
 	cmd.Flags().BoolVar(&cfg.NoIcons, "no-icons", false, "disable icons")
 	cmd.Flags().BoolVar(&cfg.NoColor, "no-color", false, "disable colors")
 	cmd.Flags().BoolVar(&cfg.JSON, "json", false, "output JSON")
+	cmd.Flags().Var(
+		&estimateDepthFlag{value: &cfg.EstimateDepth, set: &cfg.EstimateSet},
+		"estimate-depth",
+		`sum file sizes up to DEPTH levels below each directory without time limits;
+use max for full walks; table mode uses bounded estimation when unset`,
+	)
 	cmd.Flags().BoolP("version", "", false, "version for nls")
 	configureHelp(cmd)
 
@@ -116,7 +155,7 @@ func configureHelp(cmd *cobra.Command) {
 		"quote-name", "full-time", "group-directories-first", "inode", "size-blocks",
 	)
 	markGroup(cmd, "Plain-output layout flags", "one", "comma")
-	markGroup(cmd, "nls presentation flags", "json", "no-icons", "no-color", "help", "version")
+	markGroup(cmd, "nls presentation flags", "json", "estimate-depth", "no-icons", "no-color", "help", "version")
 
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		out := cmd.OutOrStdout()
@@ -162,43 +201,70 @@ func formatFlag(flag *pflag.Flag) string {
 	if flag.Shorthand != "" {
 		name = fmt.Sprintf("  -%s, --%s", flag.Shorthand, flag.Name)
 	}
-	return fmt.Sprintf("%-34s %s", name, flag.Usage)
+
+	usage := strings.TrimSpace(flag.Usage)
+	if usage == "" {
+		return fmt.Sprintf("%-34s", name)
+	}
+
+	lines := strings.Split(usage, "\n")
+	const nameWidth = 34
+	var b strings.Builder
+	fmt.Fprintf(&b, "%-*s %s", nameWidth, name, strings.TrimSpace(lines[0]))
+	indent := strings.Repeat(" ", nameWidth+1)
+	for _, line := range lines[1:] {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		b.WriteByte('\n')
+		b.WriteString(indent)
+		b.WriteString(line)
+	}
+	return b.String()
 }
 
 func buildListOptions(cfg *Config, interactive bool) listing.Options {
+	estimateDepth := listing.EstimateDepthOff
+	switch {
+	case cfg.EstimateSet:
+		estimateDepth = cfg.EstimateDepth
+	case interactive:
+		estimateDepth = listing.EstimateDepthBounded
+	}
 	needsFull := listing.NeedsFullMetadata(listing.Options{
-		All:              cfg.All,
-		AlmostAll:        cfg.AlmostAll,
-		Dereference:      cfg.Dereference,
-		Directory:        cfg.Directory,
-		Recursive:        cfg.Recursive,
-		EstimateDirSizes: interactive,
-		LongListing:      cfg.Long,
-		ShowInode:        cfg.Inode,
-		ShowBlocks:       cfg.Blocks,
-		Classify:         cfg.Classify,
-		DirSlash:         cfg.DirSlash,
-		Sort:             buildSort(cfg),
+		All:           cfg.All,
+		AlmostAll:     cfg.AlmostAll,
+		Dereference:   cfg.Dereference,
+		Directory:     cfg.Directory,
+		Recursive:     cfg.Recursive,
+		EstimateDepth: estimateDepth,
+		LongListing:   cfg.Long,
+		ShowInode:     cfg.Inode,
+		ShowBlocks:    cfg.Blocks,
+		Classify:      cfg.Classify,
+		DirSlash:      cfg.DirSlash,
+		Sort:          buildSort(cfg),
 	})
 
 	return listing.Options{
-		All:              cfg.All,
-		AlmostAll:        cfg.AlmostAll,
-		IgnoreBackups:    cfg.IgnoreBack,
-		Dereference:      cfg.Dereference,
-		Directory:        cfg.Directory,
-		Recursive:        cfg.Recursive,
-		EstimateDirSizes: interactive,
-		FastPath:         !interactive && !cfg.JSON && !needsFull,
-		ResolveAbs:       interactive || cfg.JSON,
-		LongListing:      cfg.Long,
-		ShowInode:        cfg.Inode,
-		ShowBlocks:       cfg.Blocks,
-		Classify:         cfg.Classify,
-		DirSlash:         cfg.DirSlash,
-		QuoteNames:       cfg.QuoteName,
-		Commas:           cfg.Commas,
-		Sort:             buildSort(cfg),
+		All:           cfg.All,
+		AlmostAll:     cfg.AlmostAll,
+		IgnoreBackups: cfg.IgnoreBack,
+		Dereference:   cfg.Dereference,
+		Directory:     cfg.Directory,
+		Recursive:     cfg.Recursive,
+		EstimateDepth: estimateDepth,
+		FastPath:      !interactive && !cfg.JSON && !needsFull,
+		ResolveAbs:    interactive || cfg.JSON,
+		LongListing:   cfg.Long,
+		ShowInode:     cfg.Inode,
+		ShowBlocks:    cfg.Blocks,
+		Classify:      cfg.Classify,
+		DirSlash:      cfg.DirSlash,
+		QuoteNames:    cfg.QuoteName,
+		Commas:        cfg.Commas,
+		Sort:          buildSort(cfg),
 	}
 }
 

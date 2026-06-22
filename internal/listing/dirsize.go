@@ -29,10 +29,11 @@ func estimateDirectorySizes(parent string, entries []Entry, depth int, limits Li
 		path string
 	}
 
-	bounded := depth == EstimateDepthBounded || depth == EstimateDepthMax
+	bounded := depth == EstimateDepthBounded
+	maxMode := depth == EstimateDepthMax
 	maxWalkDepth := max(depth, 0)
 
-	if depth == EstimateDepthMax {
+	if maxMode {
 		limits = SafetyLimits()
 	}
 	if bounded && limits == (Limits{}) {
@@ -61,7 +62,7 @@ func estimateDirectorySizes(parent string, entries []Entry, depth int, limits Li
 		if e.Kind != KindDirectory {
 			continue
 		}
-		if bounded && len(jobs) >= maxDirs {
+		if (bounded || maxMode) && len(jobs) >= maxDirs {
 			break
 		}
 		jobs = append(jobs, job{idx: i, path: filepath.Join(parent, e.Name)})
@@ -135,7 +136,7 @@ func sumDirSize(root string, listingDeadline time.Time, bounded bool, maxWalkDep
 			truncated = true
 			return fs.SkipAll
 		}
-		if bounded && count >= maxWalkEntries {
+		if count >= maxWalkEntries {
 			truncated = true
 			return fs.SkipAll
 		}

@@ -140,7 +140,7 @@ func Root() *cobra.Command {
 		&estimateDepthFlag{value: &cfg.EstimateDepth, set: &cfg.EstimateSet},
 		"estimate-depth",
 		`sum file sizes up to DEPTH levels below each directory;
-use max for unlimited depth (safety-capped so it cannot hang on huge trees);
+use max for unlimited depth (entry-capped so it cannot hang on huge trees);
 table mode uses bounded estimation when unset`,
 	)
 	cmd.Flags().BoolP("version", "", false, "version for nls")

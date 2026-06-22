@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
-	"time"
 )
 
 func TestEstimateDirectorySizesUnlimited(t *testing.T) {
@@ -162,41 +161,42 @@ func TestEstimateMaxSafetyNetTruncatesHugeTree(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for i := range SafetyLimits().MaxWalkEntries + 100 {
+	cap := 500
+	for i := range cap + 100 {
 		if err := os.WriteFile(filepath.Join(big, "f"+strconv.Itoa(i)), []byte("x"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	entries, err := ReadDir(dir, Options{EstimateDepth: EstimateDepthMax})
+	entries, err := ReadDir(dir, Options{EstimateDepth: EstimateDepthBounded, BoundedLimits: Limits{
+		MaxWalkEntries:    cap,
+		MaxDirsPerListing: 10,
+		WalkDuration:      0,
+		ListingDuration:   0,
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	huge := findEntry(t, entries, "huge")
 	if !huge.SizeApprox {
-		t.Fatal("max mode should mark approx when safety entry cap is exceeded")
+		t.Fatal("should mark approx when entry cap is exceeded")
 	}
 }
 
-func TestSafetyLimitsIsGenerous(t *testing.T) {
+func TestSafetyLimitsHasNoTimeLimits(t *testing.T) {
 	s := SafetyLimits()
-	def := DefaultBoundedLimits()
-	relaxed := Limits{
-		WalkDuration:      200 * time.Millisecond,
-		ListingDuration:   500 * time.Millisecond,
-		MaxWalkEntries:    2000,
-		MaxDirsPerListing: 12,
+	if s.WalkDuration != 0 {
+		t.Fatalf("safety WalkDuration = %v, want 0 (no time limit)", s.WalkDuration)
 	}
-	if s.WalkDuration <= relaxed.WalkDuration {
-		t.Fatalf("safety walk budget %v should exceed relaxed %v", s.WalkDuration, relaxed.WalkDuration)
-	}
-	if s.MaxWalkEntries <= relaxed.MaxWalkEntries {
-		t.Fatalf("safety entry cap %d should exceed relaxed %d", s.MaxWalkEntries, relaxed.MaxWalkEntries)
+	if s.ListingDuration != 0 {
+		t.Fatalf("safety ListingDuration = %v, want 0 (no time limit)", s.ListingDuration)
 	}
 	if s.MaxDepth != 0 {
 		t.Fatalf("safety MaxDepth = %d, want 0 (unlimited)", s.MaxDepth)
 	}
-	_ = def
+	if s.MaxWalkEntries < 100000 {
+		t.Fatalf("safety MaxWalkEntries = %d, want >= 100000", s.MaxWalkEntries)
+	}
 }
 
 func TestTreeDepth(t *testing.T) {

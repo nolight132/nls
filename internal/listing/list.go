@@ -41,14 +41,14 @@ func DefaultBoundedLimits() Limits {
 }
 
 // SafetyLimits returns generous caps applied to --estimate-depth max so that
-// full-walk mode cannot hang on huge filesystems like /. Depth stays
-// unlimited; time and entry counts provide the safety net.
+// full-walk mode cannot hang on huge filesystems like /. No time limits —
+// only an entry-count cap high enough to fully scan a typical home directory.
 func SafetyLimits() Limits {
 	return Limits{
-		WalkDuration:      1 * time.Second,
-		ListingDuration:   5 * time.Second,
-		MaxWalkEntries:    20000,
-		MaxDirsPerListing: 20,
+		WalkDuration:      0,
+		ListingDuration:   0,
+		MaxWalkEntries:    200000,
+		MaxDirsPerListing: 50,
 		MaxDepth:          0,
 	}
 }

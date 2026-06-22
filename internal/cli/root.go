@@ -272,10 +272,7 @@ func buildListOptions(cfg *Config, interactive bool, userCfg config.Config) list
 }
 
 func run(cfg *Config) error {
-	userCfg, err := config.Load()
-	if err != nil {
-		return err
-	}
+	userCfg := loadUserConfig(os.Stderr)
 
 	paths := cfg.Paths
 	if len(paths) == 0 {
@@ -322,6 +319,15 @@ func run(cfg *Config) error {
 	}
 
 	return output.RenderFast(os.Stdout, expanded, listOpts, outOpts)
+}
+
+func loadUserConfig(w io.Writer) config.Config {
+	userCfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(w, "nls: warning: %v; using defaults\n", err)
+		return config.Defaults()
+	}
+	return userCfg
 }
 
 func buildColumns(cfg *Config, userCfg config.Config) []string {

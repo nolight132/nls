@@ -225,8 +225,12 @@ func Load() (Config, error) {
 		return Defaults(), fmt.Errorf("read config %s: %w", path, err)
 	}
 	var raw Config
-	if _, err := toml.Decode(string(data), &raw); err != nil {
+	md, err := toml.Decode(string(data), &raw)
+	if err != nil {
 		return Defaults(), fmt.Errorf("parse config %s: %w", path, err)
+	}
+	if keys := md.Undecoded(); len(keys) > 0 {
+		return Defaults(), fmt.Errorf("parse config %s: unknown key %q", path, keys[0].String())
 	}
 	return raw.Resolve()
 }

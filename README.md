@@ -156,13 +156,13 @@ at the repo root for a commented template. The initial schema covers:
 ```toml
 icons = false
 
-[dir_size]
-default_depth = 0      # max walk depth when --estimate-depth is not passed (0 = unlimited)
-timing = "balanced"    # strict | balanced | relaxed
-
 default_columns = [    # columns shown in interactive table mode, in order
     "id", "name", "type", "size", "modified",
 ]
+
+[dir_size]
+default_depth = 0      # max walk depth when --estimate-depth is not passed (0 = unlimited)
+timing = "balanced"    # strict | balanced | relaxed
 ```
 
 `timing` picks a named budget preset for bounded directory size estimation on

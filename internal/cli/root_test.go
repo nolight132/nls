@@ -2,6 +2,9 @@ package cli
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -21,6 +24,31 @@ func TestVersionFlag(t *testing.T) {
 	}
 	if got := out.String(); !strings.Contains(got, "nls version ") {
 		t.Fatalf("version output = %q", got)
+	}
+}
+
+func TestLoadUserConfigFallsBackOnInvalidConfig(t *testing.T) {
+	root := t.TempDir()
+	if runtime.GOOS == "windows" {
+		t.Setenv("APPDATA", root)
+	} else {
+		t.Setenv("XDG_CONFIG_HOME", root)
+	}
+	dir := filepath.Join(root, "nls")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte("icons = = bad"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var errOut bytes.Buffer
+	got := loadUserConfig(&errOut)
+	if !columnsEqual(got.DefaultColumns, config.Defaults().DefaultColumns) {
+		t.Fatalf("columns = %v, want defaults", got.DefaultColumns)
+	}
+	if !strings.Contains(errOut.String(), "using defaults") {
+		t.Fatalf("warning = %q, want using defaults", errOut.String())
 	}
 }
 
@@ -193,4 +221,16 @@ func TestEstimateDepthFlagSet(t *testing.T) {
 	if flag.Set("nope") == nil {
 		t.Fatal("expected error for invalid depth")
 	}
+}
+
+func columnsEqual(a, b []config.ColumnEntry) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -294,6 +295,33 @@ timing = "relaxed"
 	}
 	if got := cfg.Limits().MaxDepth; got != 2 {
 		t.Fatalf("limits MaxDepth = %d, want 2", got)
+	}
+}
+
+func TestLoadRejectsMisplacedDefaultColumns(t *testing.T) {
+	root := t.TempDir()
+	setConfigDirEnv(t, root)
+	dir := filepath.Join(root, "nls")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	contents := `
+icons = true
+[dir_size]
+default_depth = 0
+timing = "balanced"
+default_columns = ["id", "name", "size", "modified"]
+`
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte(contents), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for default_columns under dir_size")
+	}
+	if !strings.Contains(err.Error(), `unknown key "dir_size.default_columns"`) {
+		t.Fatalf("error = %q, want unknown dir_size.default_columns", err)
 	}
 }
 

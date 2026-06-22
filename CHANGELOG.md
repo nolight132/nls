@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.5
+## v0.1.6
 
 - Added `--estimate-depth` for directory size estimation: bounded by default in table mode, numeric levels, or `max` for full walks without time limits.
 - Added table-mode guard so bordered output is not skipped when `--estimate-depth` is unset.

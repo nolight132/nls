@@ -104,6 +104,67 @@ func TestBuildListOptionsUsesDefaultsWhenBounded(t *testing.T) {
 	}
 }
 
+func TestBuildColumnsDefaults(t *testing.T) {
+	cols := buildColumns(&Config{}, config.Defaults())
+	want := []string{"id", "name", "type", "size", "modified"}
+	if len(cols) != len(want) {
+		t.Fatalf("cols = %v, want %v", cols, want)
+	}
+	for i, w := range want {
+		if cols[i] != w {
+			t.Fatalf("cols[%d] = %q, want %q", i, cols[i], w)
+		}
+	}
+}
+
+func TestBuildColumnsConfigOverridesOrder(t *testing.T) {
+	userCfg := config.Config{
+		DefaultColumns: []config.ColumnEntry{
+			config.ColumnName,
+			config.ColumnId,
+			config.ColumnSize,
+		},
+	}
+	cols := buildColumns(&Config{}, userCfg)
+	if cols[0] != "name" || cols[1] != "id" || cols[2] != "size" {
+		t.Fatalf("cols = %v, want [name id size]", cols)
+	}
+}
+
+func TestBuildColumnsFlagsAppendIfMissing(t *testing.T) {
+	userCfg := config.Config{
+		DefaultColumns: []config.ColumnEntry{config.ColumnName, config.ColumnSize},
+	}
+	cols := buildColumns(&Config{Inode: true, Blocks: true, Long: true}, userCfg)
+	want := []string{"name", "size", "inode", "blocks", "permissions"}
+	if len(cols) != len(want) {
+		t.Fatalf("cols = %v, want %v", cols, want)
+	}
+	for i, w := range want {
+		if cols[i] != w {
+			t.Fatalf("cols[%d] = %q, want %q", i, cols[i], w)
+		}
+	}
+}
+
+func TestBuildColumnsFlagsDontDuplicateConfigColumns(t *testing.T) {
+	userCfg := config.Config{
+		DefaultColumns: []config.ColumnEntry{
+			config.ColumnName, config.ColumnInode, config.ColumnPermissions,
+		},
+	}
+	cols := buildColumns(&Config{Inode: true, Long: true}, userCfg)
+	count := 0
+	for _, c := range cols {
+		if c == "inode" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("inode appeared %d times in %v, want 1", count, cols)
+	}
+}
+
 func TestEstimateDepthFlagSet(t *testing.T) {
 	var depth int
 	var set bool

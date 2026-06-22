@@ -317,9 +317,32 @@ func run(cfg *Config) error {
 		ShowBlocks: cfg.Blocks,
 		TimeField:  timeField(cfg),
 		UseTable:   interactive,
+		Columns:    buildColumns(cfg, userCfg),
 	}
 
 	return output.RenderFast(os.Stdout, expanded, listOpts, outOpts)
+}
+
+func buildColumns(cfg *Config, userCfg config.Config) []string {
+	cols := make([]string, 0, len(userCfg.DefaultColumns)+3)
+	seen := make(map[string]bool, len(userCfg.DefaultColumns)+3)
+	for _, c := range userCfg.DefaultColumns {
+		s := string(c)
+		if !seen[s] {
+			cols = append(cols, s)
+			seen[s] = true
+		}
+	}
+	if cfg.Inode && !seen[string(config.ColumnInode)] {
+		cols = append(cols, string(config.ColumnInode))
+	}
+	if cfg.Blocks && !seen[string(config.ColumnBlocks)] {
+		cols = append(cols, string(config.ColumnBlocks))
+	}
+	if cfg.Long && !seen[string(config.ColumnPermissions)] {
+		cols = append(cols, string(config.ColumnPermissions))
+	}
+	return cols
 }
 
 func buildSort(cfg *Config) listing.SortOptions {

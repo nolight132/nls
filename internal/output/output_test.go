@@ -106,6 +106,81 @@ func TestRenderTable(t *testing.T) {
 	}
 }
 
+func TestRenderTableCustomColumns(t *testing.T) {
+	entries := []listing.Entry{{
+		Name:        "docs",
+		Kind:        listing.KindDirectory,
+		Permissions: "drwxr-xr-x",
+		Owner:       "alice",
+		Group:       "staff",
+		Links:       3,
+		Inode:       999,
+		Blocks:      8,
+		Accessed:    time.Date(2026, 6, 20, 12, 0, 0, 0, time.UTC),
+		Changed:     time.Date(2026, 6, 20, 13, 0, 0, 0, time.UTC),
+	}}
+
+	var buf bytes.Buffer
+	if err := Render(&buf, blocks(entries...), Options{
+		UseTable: true,
+		IsTTY:    true,
+		Color:    false,
+		IconSet:  icons.SetNone,
+		Now:      time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC),
+		Columns:  []string{"id", "name", "owner", "group", "links", "accessed", "changed", "permissions", "inode", "blocks"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	out := buf.String()
+	for _, want := range []string{"owner", "group", "links", "accessed", "changed", "permissions", "inode", "blocks", "alice", "staff", "999", "drwxr-xr-x"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in %q", want, out)
+		}
+	}
+}
+
+func TestRenderTableColumnsOmitType(t *testing.T) {
+	entries := []listing.Entry{{Name: "docs", Kind: listing.KindDirectory}}
+	var buf bytes.Buffer
+	if err := Render(&buf, blocks(entries...), Options{
+		UseTable: true,
+		IsTTY:    true,
+		Color:    false,
+		IconSet:  icons.SetNone,
+		Now:      time.Now(),
+		Columns:  []string{"id", "name", "size"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "type") {
+		t.Fatalf("type column should be absent: %q", out)
+	}
+	if strings.Contains(out, "modified") {
+		t.Fatalf("modified column should be absent: %q", out)
+	}
+}
+
+func TestRenderTableIgnoresUnknownColumn(t *testing.T) {
+	entries := []listing.Entry{{Name: "docs"}}
+	var buf bytes.Buffer
+	if err := Render(&buf, blocks(entries...), Options{
+		UseTable: true,
+		IsTTY:    true,
+		Color:    false,
+		IconSet:  icons.SetNone,
+		Now:      time.Now(),
+		Columns:  []string{"id", "bogus", "name"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "bogus") {
+		t.Fatalf("unknown column should be skipped: %q", out)
+	}
+}
+
 func TestRenderClassify(t *testing.T) {
 	entries := []listing.Entry{{Name: "bin", Kind: listing.KindDirectory}}
 	var buf bytes.Buffer

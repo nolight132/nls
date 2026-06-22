@@ -62,6 +62,33 @@ type DirSizeConfig struct {
 	Timing TimingPreset `toml:"timing"`
 }
 
+// ColumnEntry names a single column in the listing layout.
+type ColumnEntry string
+
+const (
+	// Base table columns.
+	ColumnId   ColumnEntry = "id"
+	ColumnName ColumnEntry = "name"
+	ColumnType ColumnEntry = "type"
+	ColumnSize ColumnEntry = "size"
+
+	// Time fields. modified is the default; accessed/changed apply with
+	// --access-time/-u and --ctime/-c.
+	ColumnModified ColumnEntry = "modified"
+	ColumnAccessed ColumnEntry = "accessed"
+	ColumnChanged  ColumnEntry = "changed"
+
+	// Long listing (-l) metadata.
+	ColumnPermissions ColumnEntry = "permissions"
+	ColumnLinks       ColumnEntry = "links"
+	ColumnOwner       ColumnEntry = "owner"
+	ColumnGroup       ColumnEntry = "group"
+
+	// Optional counts, shown with -i and -s.
+	ColumnInode  ColumnEntry = "inode"
+	ColumnBlocks ColumnEntry = "blocks"
+)
+
 // Config is the nls user configuration loaded from XDG paths.
 type Config struct {
 	// Icons enables Nerd Font icons by default. --no-icons and NLS_ICONS
@@ -69,6 +96,8 @@ type Config struct {
 	Icons bool `toml:"icons"`
 	// DirSize holds defaults for bounded directory size estimation.
 	DirSize DirSizeConfig `toml:"dir_size"`
+	// Layout holds defaults for the layout of the listing.
+	DefaultColumns []ColumnEntry `toml:"default_columns"`
 }
 
 // Defaults returns the configuration used when no file is present.
@@ -78,6 +107,13 @@ func Defaults() Config {
 		DirSize: DirSizeConfig{
 			DefaultDepth: 0,
 			Timing:       TimingBalanced,
+		},
+		DefaultColumns: []ColumnEntry{
+			ColumnId,
+			ColumnName,
+			ColumnType,
+			ColumnSize,
+			ColumnModified,
 		},
 	}
 }
@@ -97,7 +133,26 @@ func (c Config) Resolve() (Config, error) {
 	if _, err := presetLimits(resolved.DirSize.Timing); err != nil {
 		return resolved, err
 	}
+	if len(c.DefaultColumns) > 0 {
+		for _, col := range c.DefaultColumns {
+			if !isValidColumn(col) {
+				return resolved, fmt.Errorf("unknown column %q in default_columns", col)
+			}
+		}
+		resolved.DefaultColumns = c.DefaultColumns
+	}
 	return resolved, nil
+}
+
+func isValidColumn(c ColumnEntry) bool {
+	switch c {
+	case ColumnId, ColumnName, ColumnType, ColumnSize,
+		ColumnModified, ColumnAccessed, ColumnChanged,
+		ColumnPermissions, ColumnLinks, ColumnOwner, ColumnGroup,
+		ColumnInode, ColumnBlocks:
+		return true
+	}
+	return false
 }
 
 // Limits returns the concrete budgets for the configured timing preset.

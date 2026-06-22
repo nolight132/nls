@@ -43,6 +43,9 @@ type Options struct {
 	ShowBlocks bool
 	TimeField  listing.TimeField
 	UseTable   bool
+	// Columns controls which columns appear in table mode and their order.
+	// Empty falls back to the built-in default set.
+	Columns []string
 }
 
 // JSONRow is a single entry in JSON output.

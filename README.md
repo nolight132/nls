@@ -159,6 +159,10 @@ icons = false
 [dir_size]
 default_depth = 0      # max walk depth when --estimate-depth is not passed (0 = unlimited)
 timing = "balanced"    # strict | balanced | relaxed
+
+default_columns = [    # columns shown in interactive table mode, in order
+    "id", "name", "type", "size", "modified",
+]
 ```
 
 `timing` picks a named budget preset for bounded directory size estimation on
@@ -170,6 +174,12 @@ not exposed in the file:
 | `strict`   | Aggressive caps, stays snappy on huge trees   |
 | `balanced` | Default, enough headroom for typical repos    |
 | `relaxed`  | Generous, prefers accurate sizes over latency |
+
+`default_columns` controls which columns appear in interactive table mode and
+their order. Omit a column to hide it; list one to enable it by default.
+Available columns: `id`, `name`, `type`, `size`, `modified`, `accessed`,
+`changed`, `permissions`, `links`, `owner`, `group`, `inode`, `blocks`.
+Flags `-i`, `-s`, `-l` still append their columns if not already listed.
 
 Precedence, highest to lowest: command-line flags, environment variables
 (`NLS_ICONS`, `NERD_FONT`, ...), config file, built-in defaults.

@@ -2,8 +2,9 @@
 
 ## v0.1.7
 
-- Added XDG config file support (`$XDG_CONFIG_HOME/nls/config.toml` on Linux/macOS, `%APPDATA%\nls\config.toml` on Windows), TOML-encoded. Initial schema covers the icon toggle and bounded directory size estimation defaults (`dir_size.default_depth`, `dir_size.timing`).
+- Added XDG config file support (`$XDG_CONFIG_HOME/nls/config.toml` on Linux/macOS, `%APPDATA%\nls\config.toml` on Windows), TOML-encoded. Initial schema covers the icon toggle, bounded directory size estimation defaults (`dir_size.default_depth`, `dir_size.timing`), and table column selection (`default_columns`).
 - Added named timing presets (`strict`, `balanced`, `relaxed`) for bounded estimation budgets; raw millisecond values are no longer the only knob.
+- Added configurable table columns via `default_columns` in the config file. All 13 columns are available: `id`, `name`, `type`, `size`, `modified`, `accessed`, `changed`, `permissions`, `links`, `owner`, `group`, `inode`, `blocks`. Omit a column to hide it; flags `-i`/`-s`/`-l` still append their columns if not listed.
 - Config `icons` now provides the default icon state; `--no-icons` and `NLS_ICONS` still override it.
 - Added `config.example.toml` as a commented template.
 

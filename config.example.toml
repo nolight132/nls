@@ -17,3 +17,16 @@ default_depth = 0
 #   balanced - default, enough headroom for typical repos
 #   relaxed  - generous, prefers accurate sizes over latency
 timing = "balanced"
+
+# Columns shown in interactive table mode, in order.
+# Omit a column to hide it; add one to enable it by default.
+# Flags -i, -s, -l still append their columns if not listed here.
+# Available: id, name, type, size, modified, accessed, changed,
+#            permissions, links, owner, group, inode, blocks
+default_columns = [
+    "id",
+    "name",
+    "type",
+    "size",
+    "modified",
+]

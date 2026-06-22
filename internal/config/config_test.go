@@ -65,6 +65,28 @@ func TestResolveRejectsUnknownTiming(t *testing.T) {
 	}
 }
 
+func TestResolveRejectsUnknownColumn(t *testing.T) {
+	if _, err := (&Config{DefaultColumns: []ColumnEntry{"bogus"}}).Resolve(); err == nil {
+		t.Fatal("expected error for unknown column name")
+	}
+}
+
+func TestResolveAcceptsAllKnownColumns(t *testing.T) {
+	all := []ColumnEntry{
+		ColumnId, ColumnName, ColumnType, ColumnSize,
+		ColumnModified, ColumnAccessed, ColumnChanged,
+		ColumnPermissions, ColumnLinks, ColumnOwner, ColumnGroup,
+		ColumnInode, ColumnBlocks,
+	}
+	resolved, err := (&Config{DefaultColumns: all}).Resolve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resolved.DefaultColumns) != len(all) {
+		t.Fatalf("resolved columns = %d, want %d", len(resolved.DefaultColumns), len(all))
+	}
+}
+
 func TestLimitsForStrict(t *testing.T) {
 	c := Config{DirSize: DirSizeConfig{Timing: TimingStrict}}
 	limits := c.Limits()
@@ -220,9 +242,24 @@ func TestLoadMissingFileReturnsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg != Defaults() {
-		t.Fatalf("missing file: got %+v, want defaults %+v", cfg, Defaults())
+	want := Defaults()
+	if cfg.Icons != want.Icons ||
+		cfg.DirSize != want.DirSize ||
+		!columnsEqual(cfg.DefaultColumns, want.DefaultColumns) {
+		t.Fatalf("missing file: got %+v, want defaults %+v", cfg, want)
 	}
+}
+
+func columnsEqual(a, b []ColumnEntry) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestLoadReadsAndResolves(t *testing.T) {

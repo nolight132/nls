@@ -22,27 +22,133 @@ const (
 )
 
 type tableColumn struct {
-	header string
-	align  cellAlign
+	header       string
+	align        cellAlign
+	centerHeader bool
+	render       func(e listing.Entry, idx int, ctx renderCtx) string
+}
+
+type renderCtx struct {
+	opts   Options
+	styles *termcolor.Style
+	now    time.Time
+	human  bool
+}
+
+var columnRegistry = map[string]struct {
+	header       string
+	align        cellAlign
+	centerHeader bool
+	render       func(e listing.Entry, idx int, ctx renderCtx) string
+}{
+	"id": {
+		header: "#", align: alignRight, centerHeader: true,
+		render: func(e listing.Entry, idx int, ctx renderCtx) string {
+			return ctx.styles.Index(strconv.Itoa(idx))
+		},
+	},
+	"name": {
+		header: "name", align: alignLeft, centerHeader: true,
+		render: func(e listing.Entry, _ int, ctx renderCtx) string {
+			return ctx.styles.Name(tableDisplayName(e, ctx.opts), e.Kind)
+		},
+	},
+	"type": {
+		header: "type", align: alignLeft, centerHeader: false,
+		render: func(e listing.Entry, _ int, _ renderCtx) string {
+			return typeLabel(e)
+		},
+	},
+	"size": {
+		header: "size", align: alignRight, centerHeader: true,
+		render: func(e listing.Entry, _ int, ctx renderCtx) string {
+			return ctx.styles.Size(format.Size(e.Size, ctx.human, e.SizeApprox))
+		},
+	},
+	"modified": {
+		header: "modified", align: alignLeft, centerHeader: true,
+		render: func(e listing.Entry, _ int, ctx renderCtx) string {
+			return ctx.styles.Modified(tableTimeField(e.Modified, ctx.opts, ctx.now))
+		},
+	},
+	"accessed": {
+		header: "accessed", align: alignLeft, centerHeader: true,
+		render: func(e listing.Entry, _ int, ctx renderCtx) string {
+			return ctx.styles.Modified(tableTimeField(e.Accessed, ctx.opts, ctx.now))
+		},
+	},
+	"changed": {
+		header: "changed", align: alignLeft, centerHeader: true,
+		render: func(e listing.Entry, _ int, ctx renderCtx) string {
+			return ctx.styles.Modified(tableTimeField(e.Changed, ctx.opts, ctx.now))
+		},
+	},
+	"permissions": {
+		header: "permissions", align: alignLeft, centerHeader: false,
+		render: func(e listing.Entry, _ int, _ renderCtx) string {
+			return e.Permissions
+		},
+	},
+	"links": {
+		header: "links", align: alignRight, centerHeader: false,
+		render: func(e listing.Entry, _ int, _ renderCtx) string {
+			return strconv.FormatUint(e.Links, 10)
+		},
+	},
+	"owner": {
+		header: "owner", align: alignLeft, centerHeader: false,
+		render: func(e listing.Entry, _ int, _ renderCtx) string {
+			return e.Owner
+		},
+	},
+	"group": {
+		header: "group", align: alignLeft, centerHeader: false,
+		render: func(e listing.Entry, _ int, _ renderCtx) string {
+			return e.Group
+		},
+	},
+	"inode": {
+		header: "inode", align: alignRight, centerHeader: false,
+		render: func(e listing.Entry, _ int, _ renderCtx) string {
+			return strconv.FormatUint(e.Inode, 10)
+		},
+	},
+	"blocks": {
+		header: "blocks", align: alignRight, centerHeader: false,
+		render: func(e listing.Entry, _ int, _ renderCtx) string {
+			return strconv.FormatInt(e.Blocks, 10)
+		},
+	},
+}
+
+var defaultTableColumns = []string{"id", "name", "type", "size", "modified"}
+
+func buildTableColumns(opts Options, styles *termcolor.Style) []tableColumn {
+	names := opts.Columns
+	if len(names) == 0 {
+		names = defaultTableColumns
+	}
+	cols := make([]tableColumn, 0, len(names))
+	for _, name := range names {
+		spec, ok := columnRegistry[name]
+		if !ok {
+			continue
+		}
+		cols = append(cols, tableColumn{
+			header:       styles.Header(spec.header),
+			align:        spec.align,
+			centerHeader: spec.centerHeader,
+			render:       spec.render,
+		})
+	}
+	return cols
 }
 
 func renderTable(w io.Writer, entries []listing.Entry, opts Options) error {
 	styles := termcolor.New(opts.Color)
-	cols := []tableColumn{
-		{header: styles.Header("#"), align: alignRight},
-		{header: styles.Header("name"), align: alignLeft},
-		{header: styles.Header("type"), align: alignLeft},
-		{header: styles.Header("size"), align: alignRight},
-		{header: styles.Header("modified"), align: alignLeft},
-	}
-	if opts.ShowInode {
-		cols = append(cols, tableColumn{header: styles.Header("inode"), align: alignRight})
-	}
-	if opts.ShowBlocks {
-		cols = append(cols, tableColumn{header: styles.Header("blocks"), align: alignRight})
-	}
-	if opts.Long {
-		cols = append(cols, tableColumn{header: styles.Header("permissions"), align: alignLeft})
+	cols := buildTableColumns(opts, styles)
+	if len(cols) == 0 {
+		return nil
 	}
 
 	now := opts.Now
@@ -50,30 +156,13 @@ func renderTable(w io.Writer, entries []listing.Entry, opts Options) error {
 		now = time.Now()
 	}
 
-	human := opts.Human || opts.IsTTY
+	ctx := renderCtx{opts: opts, styles: styles, now: now, human: opts.Human || opts.IsTTY}
+
 	rows := make([][]string, 0, len(entries))
 	for i, e := range entries {
-		name := tableDisplayName(e, opts)
-		name = styles.Name(name, e.Kind)
-
-		modified := tableTime(e, opts, now)
-		modified = styles.Modified(modified)
-
-		row := []string{
-			styles.Index(strconv.Itoa(i)),
-			name,
-			typeLabel(e),
-			styles.Size(format.Size(e.Size, human, e.SizeApprox)),
-			modified,
-		}
-		if opts.ShowInode {
-			row = append(row, strconv.FormatUint(e.Inode, 10))
-		}
-		if opts.ShowBlocks {
-			row = append(row, strconv.FormatInt(e.Blocks, 10))
-		}
-		if opts.Long {
-			row = append(row, e.Permissions)
+		row := make([]string, 0, len(cols))
+		for _, col := range cols {
+			row = append(row, col.render(e, i, ctx))
 		}
 		rows = append(rows, row)
 	}
@@ -88,8 +177,7 @@ func tableDisplayName(e listing.Entry, opts Options) string {
 	return icons.For(e.Kind, opts.IconSet) + name
 }
 
-func tableTime(e listing.Entry, opts Options, now time.Time) string {
-	t := listing.EntryTime(e, opts.TimeField)
+func tableTimeField(t time.Time, opts Options, now time.Time) string {
 	if opts.FullTime {
 		return format.LsTime(t, now, true)
 	}
@@ -166,8 +254,7 @@ func writeHeaderRow(b *strings.Builder, widths []int, cols []tableColumn) {
 			b.WriteRune('│')
 		}
 		align := col.align
-		switch stripANSI(col.header) {
-		case "#", "name", "size", "modified":
+		if col.centerHeader {
 			align = alignCenter
 		}
 		b.WriteString(" ")

@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const (
@@ -12,6 +13,32 @@ const (
 	EstimateDepthOff
 	EstimateDepthBounded
 )
+
+// Limits holds the concrete budgets for bounded directory size estimation.
+// They are only consulted when EstimateDepth == EstimateDepthBounded.
+type Limits struct {
+	// WalkDuration caps a single directory walk.
+	WalkDuration time.Duration
+	// ListingDuration caps the total estimate work for one listing.
+	ListingDuration time.Duration
+	// MaxWalkEntries caps the number of entries walked per directory.
+	MaxWalkEntries int
+	// MaxDirsPerListing caps how many directories get estimated at all.
+	MaxDirsPerListing int
+	// MaxDepth caps walk depth; 0 means unlimited within the time budget.
+	MaxDepth int
+}
+
+// DefaultBoundedLimits returns the balanced budgets used when no user config
+// is present. These match the historical constants.
+func DefaultBoundedLimits() Limits {
+	return Limits{
+		WalkDuration:      maxDirWalkDuration,
+		ListingDuration:   maxListingEstimate,
+		MaxWalkEntries:    maxDirWalkEntries,
+		MaxDirsPerListing: maxDirsPerListingDefault,
+	}
+}
 
 // Options control directory reads.
 type Options struct {
@@ -31,6 +58,9 @@ type Options struct {
 	QuoteNames    bool
 	Commas        bool
 	EstimateDepth int
+	// BoundedLimits applies when EstimateDepth == EstimateDepthBounded.
+	// A zero value falls back to DefaultBoundedLimits().
+	BoundedLimits Limits
 	Sort          SortOptions
 }
 
@@ -200,7 +230,7 @@ func readDirAt(dir string, opts Options) ([]Entry, error) {
 	}
 
 	if opts.EstimateDepth != EstimateDepthOff {
-		estimateDirectorySizes(dir, out, opts.EstimateDepth)
+		estimateDirectorySizes(dir, out, opts.EstimateDepth, opts.BoundedLimits)
 	}
 	sortEntries(out, opts.Sort)
 	return out, nil
@@ -230,7 +260,7 @@ func readDirAtUnsorted(dir string, opts Options) ([]Entry, error) {
 	}
 
 	if opts.EstimateDepth != EstimateDepthOff {
-		estimateDirectorySizes(dir, out, opts.EstimateDepth)
+		estimateDirectorySizes(dir, out, opts.EstimateDepth, opts.BoundedLimits)
 	}
 	return out, nil
 }

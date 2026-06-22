@@ -1,0 +1,19 @@
+# nls user configuration.
+#
+# Linux/macOS: $XDG_CONFIG_HOME/nls/config.toml (or ~/.config/nls/config.toml)
+# Windows:     %APPDATA%\nls\config.toml
+
+# Enable Nerd Font icons by default. --no-icons and NLS_ICONS still override.
+icons = false
+
+[dir_size]
+# Maximum walk depth per directory when --estimate-depth is not passed.
+# 0 = unlimited depth, bounded only by the timing preset below.
+default_depth = 0
+
+# Budget preset for bounded directory size estimation.
+# Concrete timings are derived from the name, never edited as raw values.
+#   strict   - aggressive caps, stays snappy on huge trees
+#   balanced - default, enough headroom for typical repos
+#   relaxed  - generous, prefers accurate sizes over latency
+timing = "balanced"

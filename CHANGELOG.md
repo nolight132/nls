@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.7
+
+- Added XDG config file support (`$XDG_CONFIG_HOME/nls/config.toml` on Linux/macOS, `%APPDATA%\nls\config.toml` on Windows), TOML-encoded. Initial schema covers the icon toggle and bounded directory size estimation defaults (`dir_size.default_depth`, `dir_size.timing`).
+- Added named timing presets (`strict`, `balanced`, `relaxed`) for bounded estimation budgets; raw millisecond values are no longer the only knob.
+- Config `icons` now provides the default icon state; `--no-icons` and `NLS_ICONS` still override it.
+- Added `config.example.toml` as a commented template.
+
 ## v0.1.6
 
 - Added `--estimate-depth` for directory size estimation: bounded by default in table mode, numeric levels, or `max` for full walks without time limits.

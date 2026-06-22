@@ -28,9 +28,9 @@ to traditional shells and environments without requiring users to switch to Nush
 
 It is a **neo-ls**: a modern file listing command designed around three ideas:
 
-* beautiful tables when you are looking at files interactively
-* practical compatibility when used in pipes and scripts
-* useful defaults, like showing directory sizes without making normal usage slow
+- beautiful tables when you are looking at files interactively
+- practical compatibility when used in pipes and scripts
+- useful defaults, like showing directory sizes without making normal usage slow
 
 Nushell already provides an excellent file listing experience, and much of `nls` is inspired by it.
 
@@ -48,15 +48,15 @@ It works in bash, zsh, fish, Nushell, PowerShell, Windows Terminal, Linux termin
 
 ## Features
 
-* Nushell-style tables for interactive terminal use
-* Directory sizes shown by default
-* Fast non-TTY behavior for pipes, redirects, and scripts
-* GNU `ls`-like behavior for common workflows
-* Helpful suggestions when flags or arguments are mistyped
-* Optional icons with `NLS_ICONS=1`
-* Colors for files, directories, symlinks, executables, sizes, and timestamps
-* JSON output for structured usage
-* Works on Linux, macOS, and Windows
+- Nushell-style tables for interactive terminal use
+- Directory sizes shown by default
+- Fast non-TTY behavior for pipes, redirects, and scripts
+- GNU `ls`-like behavior for common workflows
+- Helpful suggestions when flags or arguments are mistyped
+- Optional icons with `NLS_ICONS=1`
+- Colors for files, directories, symlinks, executables, sizes, and timestamps
+- JSON output for structured usage
+- Works on Linux, macOS, and Windows
 
 ---
 
@@ -140,6 +140,42 @@ NLS_ICONS=nerd nls
 
 ---
 
+## Configuration
+
+`nls` reads an optional TOML config file from the OS-specific config directory:
+
+```
+$XDG_CONFIG_HOME/nls/config.toml        (Linux/macOS, XDG set)
+~/.config/nls/config.toml               (Linux/macOS, XDG unset)
+%APPDATA%\nls\config.toml               (Windows)
+```
+
+A missing file is fine; built-in defaults apply. See `config.example.toml`
+at the repo root for a commented template. The initial schema covers:
+
+```toml
+icons = false
+
+[dir_size]
+default_depth = 0      # max walk depth when --estimate-depth is not passed (0 = unlimited)
+timing = "balanced"    # strict | balanced | relaxed
+```
+
+`timing` picks a named budget preset for bounded directory size estimation on
+a TTY. The concrete millisecond/entry caps are derived from the name and are
+not exposed in the file:
+
+| Preset     | Trade-off                                     |
+| ---------- | --------------------------------------------- |
+| `strict`   | Aggressive caps, stays snappy on huge trees   |
+| `balanced` | Default, enough headroom for typical repos    |
+| `relaxed`  | Generous, prefers accurate sizes over latency |
+
+Precedence, highest to lowest: command-line flags, environment variables
+(`NLS_ICONS`, `NERD_FONT`, ...), config file, built-in defaults.
+
+---
+
 ## Output behavior
 
 | Context                   | Behavior                                      |
@@ -204,11 +240,11 @@ Future versions will include broader file-type icon coverage.
 
 Default highlights:
 
-* directories
-* symlinks
-* executables
-* sizes
-* modified timestamps
+- directories
+- symlinks
+- executables
+- sizes
+- modified timestamps
 
 ---
 
@@ -216,24 +252,24 @@ Default highlights:
 
 Planned features:
 
-* XDG config file support
-* custom color overrides
-* custom themes
-* alternative layouts
-* more table styles
-* wider file-type icon support
-* better Windows-specific polish
-* more GNU `ls` compatibility where it makes sense
-* optional Git status column
-* optional tree layout
-* more structured output modes
+- ~~XDG config file support~~
+- custom color overrides
+- custom themes
+- alternative layouts
+- more table styles
+- wider file-type icon support
+- better Windows-specific polish
+- more GNU `ls` compatibility where it makes sense
+- optional Git status column
+- optional tree layout
+- more structured output modes
 
 Possible future tools:
 
-* `nfind`
-* `ndu`
-* `nps`
-* `nstat`
+- `nfind`
+- `ndu`
+- `nps`
+- `nstat`
 
 The goal is a small suite of modern coreutils-style tools with beautiful interactive output and sane script behavior.
 
@@ -276,7 +312,6 @@ https://www.nushell.sh
 One of the ideas that made `nls` possible was seeing how `bat` provides a significantly better interactive experience while still remaining useful in pipes, scripts, and other non-interactive environments.
 
 https://github.com/sharkdp/bat
-
 
 ---
 

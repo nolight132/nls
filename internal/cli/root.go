@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/nolight132/nls/internal/config"
 	"github.com/nolight132/nls/internal/icons"
 	"github.com/nolight132/nls/internal/listing"
 	"github.com/nolight132/nls/internal/output"
@@ -224,7 +225,7 @@ func formatFlag(flag *pflag.Flag) string {
 	return b.String()
 }
 
-func buildListOptions(cfg *Config, interactive bool) listing.Options {
+func buildListOptions(cfg *Config, interactive bool, userCfg config.Config) listing.Options {
 	estimateDepth := listing.EstimateDepthOff
 	switch {
 	case cfg.EstimateSet:
@@ -255,6 +256,7 @@ func buildListOptions(cfg *Config, interactive bool) listing.Options {
 		Directory:     cfg.Directory,
 		Recursive:     cfg.Recursive,
 		EstimateDepth: estimateDepth,
+		BoundedLimits: userCfg.Limits(),
 		FastPath:      !interactive && !cfg.JSON && !needsFull,
 		ResolveAbs:    interactive || cfg.JSON,
 		LongListing:   cfg.Long,
@@ -269,6 +271,11 @@ func buildListOptions(cfg *Config, interactive bool) listing.Options {
 }
 
 func run(cfg *Config) error {
+	userCfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
 	paths := cfg.Paths
 	if len(paths) == 0 {
 		paths = []string{"."}
@@ -289,10 +296,10 @@ func run(cfg *Config) error {
 
 	var iconSet icons.Set
 	if interactive {
-		iconSet = icons.Resolve(cfg.NoIcons)
+		iconSet = icons.Resolve(cfg.NoIcons, userCfg.Icons)
 	}
 
-	listOpts := buildListOptions(cfg, interactive)
+	listOpts := buildListOptions(cfg, interactive, userCfg)
 
 	outOpts := output.Options{
 		Human:      cfg.Human || interactive,

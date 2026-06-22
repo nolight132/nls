@@ -23,7 +23,7 @@ type dirSizeResult struct {
 }
 
 // estimateDirectorySizes fills Size for directory entries by summing file contents.
-func estimateDirectorySizes(parent string, entries []Entry, depth int) {
+func estimateDirectorySizes(parent string, entries []Entry, depth int, limits Limits) {
 	type job struct {
 		idx  int
 		path string
@@ -32,12 +32,33 @@ func estimateDirectorySizes(parent string, entries []Entry, depth int) {
 	bounded := depth == EstimateDepthBounded
 	maxWalkDepth := max(depth, 0)
 
+	if bounded && limits == (Limits{}) {
+		limits = DefaultBoundedLimits()
+	}
+	maxDirs := limits.MaxDirsPerListing
+	if maxDirs <= 0 {
+		maxDirs = maxDirsPerListingDefault
+	}
+	maxWalkEntries := limits.MaxWalkEntries
+	if maxWalkEntries <= 0 {
+		maxWalkEntries = maxDirWalkEntries
+	}
+	walkBudget := limits.WalkDuration
+	if walkBudget <= 0 {
+		walkBudget = maxDirWalkDuration
+	}
+	listingBudget := limits.ListingDuration
+	if listingBudget <= 0 {
+		listingBudget = maxListingEstimate
+	}
+	boundedMaxDepth := limits.MaxDepth
+
 	jobs := make([]job, 0, len(entries))
 	for i, e := range entries {
 		if e.Kind != KindDirectory {
 			continue
 		}
-		if bounded && len(jobs) >= maxDirsPerListingDefault {
+		if bounded && len(jobs) >= maxDirs {
 			break
 		}
 		jobs = append(jobs, job{idx: i, path: filepath.Join(parent, e.Name)})
@@ -48,7 +69,7 @@ func estimateDirectorySizes(parent string, entries []Entry, depth int) {
 
 	var listingDeadline time.Time
 	if bounded {
-		listingDeadline = time.Now().Add(maxListingEstimate)
+		listingDeadline = time.Now().Add(listingBudget)
 	}
 	workers := min(len(jobs), maxDirWorkers)
 
@@ -62,7 +83,7 @@ func estimateDirectorySizes(parent string, entries []Entry, depth int) {
 				if bounded && time.Now().After(listingDeadline) {
 					continue
 				}
-				result := sumDirSize(j.path, listingDeadline, bounded, maxWalkDepth)
+				result := sumDirSize(j.path, listingDeadline, bounded, maxWalkDepth, boundedMaxDepth, walkBudget, maxWalkEntries)
 				entries[j.idx].Size = result.bytes
 				entries[j.idx].SizeApprox = result.approx
 			}
@@ -76,10 +97,10 @@ func estimateDirectorySizes(parent string, entries []Entry, depth int) {
 	wg.Wait()
 }
 
-func sumDirSize(root string, listingDeadline time.Time, bounded bool, maxWalkDepth int) dirSizeResult {
+func sumDirSize(root string, listingDeadline time.Time, bounded bool, maxWalkDepth, boundedMaxDepth int, walkBudget time.Duration, maxWalkEntries int) dirSizeResult {
 	var walkDeadline time.Time
 	if bounded {
-		walkDeadline = time.Now().Add(maxDirWalkDuration)
+		walkDeadline = time.Now().Add(walkBudget)
 		if listingDeadline.Before(walkDeadline) {
 			walkDeadline = listingDeadline
 		}
@@ -101,11 +122,17 @@ func sumDirSize(root string, listingDeadline time.Time, bounded bool, maxWalkDep
 			}
 			return nil
 		}
+		if bounded && boundedMaxDepth > 0 && depth > boundedMaxDepth {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
 		if bounded && time.Now().After(walkDeadline) {
 			truncated = true
 			return fs.SkipAll
 		}
-		if bounded && count >= maxDirWalkEntries {
+		if bounded && count >= maxWalkEntries {
 			truncated = true
 			return fs.SkipAll
 		}

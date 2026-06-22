@@ -15,20 +15,28 @@ const (
 	SetNerd
 )
 
-// Resolve picks an icon set from flags and environment.
+// Resolve picks an icon set from flags, config, and environment.
+// Precedence: noIcons flag > NLS_ICONS env > configEnabled > default off.
 // Icons are off by default to match Nushell ls.
-func Resolve(noIcons bool) Set {
+func Resolve(noIcons bool, configEnabled bool) Set {
 	if noIcons {
 		return SetNone
 	}
+	if !configEnabled && !envIconsOn() {
+		return SetNone
+	}
+	if !nerdFontAvailable() {
+		return SetNone
+	}
+	return SetNerd
+}
+
+func envIconsOn() bool {
 	switch strings.ToLower(os.Getenv("NLS_ICONS")) {
 	case "1", "true", "yes", "on", "nerd":
-		if nerdFontAvailable() {
-			return SetNerd
-		}
-		return SetNone
+		return true
 	default:
-		return SetNone
+		return false
 	}
 }
 

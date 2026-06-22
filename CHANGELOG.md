@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.8
+
+- Fixed `--estimate-depth max` hanging on huge filesystems like `/`. Full-walk mode now applies generous safety caps (1s per directory, 5s total, 20k entries per dir, 20 dirs) with unlimited depth. Truncated sizes are marked approximate.
+
 ## v0.1.7
 
 - Added XDG config file support (`$XDG_CONFIG_HOME/nls/config.toml` on Linux/macOS, `%APPDATA%\nls\config.toml` on Windows), TOML-encoded. Initial schema covers the icon toggle, bounded directory size estimation defaults (`dir_size.default_depth`, `dir_size.timing`), and table column selection (`default_columns`).
@@ -10,7 +14,7 @@
 
 ## v0.1.6
 
-- Added `--estimate-depth` for directory size estimation: bounded by default in table mode, numeric levels, or `max` for full walks without time limits.
+- Added `--estimate-depth` for directory size estimation: bounded by default in table mode, numeric levels, or `max` for full walks with a safety net so huge trees like `/` cannot hang.
 - Added table-mode guard so bordered output is not skipped when `--estimate-depth` is unset.
 - Added disk-usage-based directory size estimation instead of apparent file size, for sane sizes on `/proc`, sparse images, and similar paths.
 - Added cross-mount directory walks so overlay-backed directories (e.g. Docker, containerd) are included in estimates.

@@ -3,7 +3,9 @@ package listing
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
+	"time"
 )
 
 func TestEstimateDirectorySizesUnlimited(t *testing.T) {
@@ -33,7 +35,7 @@ func TestEstimateDirectorySizesUnlimited(t *testing.T) {
 		t.Fatalf("docs size = %d, want %d", docs.Size, want)
 	}
 	if docs.SizeApprox {
-		t.Fatal("explicit estimate depth should not truncate sizes")
+		t.Fatal("small tree should not hit safety caps")
 	}
 }
 
@@ -151,6 +153,50 @@ func findEntry(t *testing.T, entries []Entry, name string) Entry {
 	}
 	t.Fatalf("%q not found", name)
 	return Entry{}
+}
+
+func TestEstimateMaxSafetyNetTruncatesHugeTree(t *testing.T) {
+	dir := t.TempDir()
+	big := filepath.Join(dir, "huge")
+	if err := os.Mkdir(big, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	for i := range SafetyLimits().MaxWalkEntries + 100 {
+		if err := os.WriteFile(filepath.Join(big, "f"+strconv.Itoa(i)), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	entries, err := ReadDir(dir, Options{EstimateDepth: EstimateDepthMax})
+	if err != nil {
+		t.Fatal(err)
+	}
+	huge := findEntry(t, entries, "huge")
+	if !huge.SizeApprox {
+		t.Fatal("max mode should mark approx when safety entry cap is exceeded")
+	}
+}
+
+func TestSafetyLimitsIsGenerous(t *testing.T) {
+	s := SafetyLimits()
+	def := DefaultBoundedLimits()
+	relaxed := Limits{
+		WalkDuration:      200 * time.Millisecond,
+		ListingDuration:   500 * time.Millisecond,
+		MaxWalkEntries:    2000,
+		MaxDirsPerListing: 12,
+	}
+	if s.WalkDuration <= relaxed.WalkDuration {
+		t.Fatalf("safety walk budget %v should exceed relaxed %v", s.WalkDuration, relaxed.WalkDuration)
+	}
+	if s.MaxWalkEntries <= relaxed.MaxWalkEntries {
+		t.Fatalf("safety entry cap %d should exceed relaxed %d", s.MaxWalkEntries, relaxed.MaxWalkEntries)
+	}
+	if s.MaxDepth != 0 {
+		t.Fatalf("safety MaxDepth = %d, want 0 (unlimited)", s.MaxDepth)
+	}
+	_ = def
 }
 
 func TestTreeDepth(t *testing.T) {

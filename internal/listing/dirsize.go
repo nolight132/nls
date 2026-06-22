@@ -29,9 +29,12 @@ func estimateDirectorySizes(parent string, entries []Entry, depth int, limits Li
 		path string
 	}
 
-	bounded := depth == EstimateDepthBounded
+	bounded := depth == EstimateDepthBounded || depth == EstimateDepthMax
 	maxWalkDepth := max(depth, 0)
 
+	if depth == EstimateDepthMax {
+		limits = SafetyLimits()
+	}
 	if bounded && limits == (Limits{}) {
 		limits = DefaultBoundedLimits()
 	}

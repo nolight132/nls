@@ -13,8 +13,8 @@ import (
 
 func TestDefaults(t *testing.T) {
 	d := Defaults()
-	if d.Icons.Enabled {
-		t.Fatal("icons should default off")
+	if !d.Icons.Enabled {
+		t.Fatal("icons should default on")
 	}
 	if !d.Icons.SpecialIcons {
 		t.Fatal("special icons should default on")
@@ -32,8 +32,8 @@ func TestResolveAcceptsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resolved.Icons.Enabled {
-		t.Fatal("empty config should keep icons off")
+	if !resolved.Icons.Enabled {
+		t.Fatal("empty config should keep icons on")
 	}
 	if !resolved.Icons.SpecialIcons {
 		t.Fatal("special icons should default on")
@@ -360,8 +360,8 @@ func TestExampleConfigLoads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Icons.Enabled {
-		t.Fatal("example config should leave icons disabled by default")
+	if !cfg.Icons.Enabled {
+		t.Fatal("example config should leave icons enabled by default")
 	}
 	if !cfg.Icons.SpecialIcons {
 		t.Fatal("example config should include special_icons = true")

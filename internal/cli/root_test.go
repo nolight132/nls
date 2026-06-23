@@ -134,7 +134,7 @@ func TestBuildListOptionsUsesDefaultsWhenBounded(t *testing.T) {
 
 func TestBuildColumnsDefaults(t *testing.T) {
 	cols := buildColumns(&Config{}, config.Defaults())
-	want := []string{"id", "name", "type", "size", "modified"}
+	want := []string{"id", "name", "size", "modified"}
 	if len(cols) != len(want) {
 		t.Fatalf("cols = %v, want %v", cols, want)
 	}

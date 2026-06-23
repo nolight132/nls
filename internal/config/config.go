@@ -109,7 +109,7 @@ type Config struct {
 func Defaults() Config {
 	return Config{
 		Icons: IconsConfig{
-			Enabled:      false,
+			Enabled:      true,
 			SpecialIcons: true,
 		},
 		DirSize: DirSizeConfig{
@@ -119,7 +119,6 @@ func Defaults() Config {
 		DefaultColumns: []ColumnEntry{
 			ColumnId,
 			ColumnName,
-			ColumnType,
 			ColumnSize,
 			ColumnModified,
 		},

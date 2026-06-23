@@ -11,14 +11,13 @@
 default_columns = [
     "id",
     "name",
-    "type",
     "size",
     "modified",
 ]
 
 # Enable Nerd Font icons by default. --no-icons and NLS_ICONS still override.
 [icons]
-enabled = false
+enabled = true
 
 # Use filename/extension-specific icons, such as Go for go.mod or a key for .env.
 # When false, enabled icons fall back to generic file/directory/executable icons.

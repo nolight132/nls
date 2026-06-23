@@ -52,6 +52,11 @@ func presetLimits(p TimingPreset) (listing.Limits, error) {
 	}
 }
 
+type IconsConfig struct {
+	Enabled      bool `toml:"enabled"`
+	SpecialIcons bool `toml:"special_icons"`
+}
+
 // DirSizeConfig controls bounded directory size estimation defaults, used
 // when --estimate-depth is not passed on a TTY.
 type DirSizeConfig struct {
@@ -93,7 +98,7 @@ const (
 type Config struct {
 	// Icons enables Nerd Font icons by default. --no-icons and NLS_ICONS
 	// still override this.
-	Icons bool `toml:"icons"`
+	Icons IconsConfig `toml:"icons"`
 	// DirSize holds defaults for bounded directory size estimation.
 	DirSize DirSizeConfig `toml:"dir_size"`
 	// Layout holds defaults for the layout of the listing.
@@ -103,7 +108,10 @@ type Config struct {
 // Defaults returns the configuration used when no file is present.
 func Defaults() Config {
 	return Config{
-		Icons: false,
+		Icons: IconsConfig{
+			Enabled:      false,
+			SpecialIcons: true,
+		},
 		DirSize: DirSizeConfig{
 			DefaultDepth: 0,
 			Timing:       TimingBalanced,
@@ -118,30 +126,17 @@ func Defaults() Config {
 	}
 }
 
-// Resolve applies defaults for missing fields and validates the result.
+// Resolve validates the result after defaults have been applied.
 func (c Config) Resolve() (Config, error) {
-	resolved := Defaults()
-	if c.Icons {
-		resolved.Icons = true
+	if _, err := presetLimits(c.DirSize.Timing); err != nil {
+		return c, err
 	}
-	if c.DirSize.DefaultDepth > 0 {
-		resolved.DirSize.DefaultDepth = c.DirSize.DefaultDepth
-	}
-	if c.DirSize.Timing != "" {
-		resolved.DirSize.Timing = c.DirSize.Timing
-	}
-	if _, err := presetLimits(resolved.DirSize.Timing); err != nil {
-		return resolved, err
-	}
-	if len(c.DefaultColumns) > 0 {
-		for _, col := range c.DefaultColumns {
-			if !isValidColumn(col) {
-				return resolved, fmt.Errorf("unknown column %q in default_columns", col)
-			}
+	for _, col := range c.DefaultColumns {
+		if !isValidColumn(col) {
+			return c, fmt.Errorf("unknown column %q in default_columns", col)
 		}
-		resolved.DefaultColumns = c.DefaultColumns
 	}
-	return resolved, nil
+	return c, nil
 }
 
 func isValidColumn(c ColumnEntry) bool {
@@ -224,7 +219,7 @@ func Load() (Config, error) {
 		}
 		return Defaults(), fmt.Errorf("read config %s: %w", path, err)
 	}
-	var raw Config
+	raw := Defaults()
 	md, err := toml.Decode(string(data), &raw)
 	if err != nil {
 		return Defaults(), fmt.Errorf("parse config %s: %w", path, err)

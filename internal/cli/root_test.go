@@ -99,7 +99,7 @@ func TestEstimateDepthExplicitZeroIsBounded(t *testing.T) {
 
 func TestBuildListOptionsAppliesConfigLimits(t *testing.T) {
 	userCfg := config.Config{
-		Icons: true,
+		Icons: config.IconsConfig{Enabled: true},
 		DirSize: config.DirSizeConfig{
 			DefaultDepth: 4,
 			Timing:       config.TimingRelaxed,

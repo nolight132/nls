@@ -294,7 +294,7 @@ func run(cfg *Config) error {
 
 	var iconSet icons.Set
 	if interactive {
-		iconSet = icons.Resolve(cfg.NoIcons, userCfg.Icons)
+		iconSet = icons.Resolve(cfg.NoIcons, userCfg.Icons.Enabled, userCfg.Icons.SpecialIcons)
 	}
 
 	listOpts := buildListOptions(cfg, interactive, userCfg)

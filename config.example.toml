@@ -3,9 +3,6 @@
 # Linux/macOS: $XDG_CONFIG_HOME/nls/config.toml (or ~/.config/nls/config.toml)
 # Windows:     %APPDATA%\nls\config.toml
 
-# Enable Nerd Font icons by default. --no-icons and NLS_ICONS still override.
-icons = false
-
 # Columns shown in interactive table mode, in order.
 # Omit a column to hide it; add one to enable it by default.
 # Flags -i, -s, -l still append their columns if not listed here.
@@ -18,6 +15,14 @@ default_columns = [
     "size",
     "modified",
 ]
+
+# Enable Nerd Font icons by default. --no-icons and NLS_ICONS still override.
+[icons]
+enabled = false
+
+# Use filename/extension-specific icons, such as Go for go.mod or a key for .env.
+# When false, enabled icons fall back to generic file/directory/executable icons.
+special_icons = true
 
 [dir_size]
 # Maximum walk depth per directory when --estimate-depth is not passed.

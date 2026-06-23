@@ -184,6 +184,7 @@ func runCompatCommand(t *testing.T, dir, bin string, args ...string) string {
 		"TZ=UTC",
 		"LS_COLORS=",
 		"CLICOLOR=0",
+		"XDG_CONFIG_HOME="+filepath.Join(dir, ".xdg-config"),
 	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

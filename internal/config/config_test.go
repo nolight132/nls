@@ -13,8 +13,11 @@ import (
 
 func TestDefaults(t *testing.T) {
 	d := Defaults()
-	if d.Icons {
+	if d.Icons.Enabled {
 		t.Fatal("icons should default off")
+	}
+	if !d.Icons.SpecialIcons {
+		t.Fatal("special icons should default on")
 	}
 	if d.DirSize.Timing != TimingBalanced {
 		t.Fatalf("default timing = %q, want balanced", d.DirSize.Timing)
@@ -24,22 +27,25 @@ func TestDefaults(t *testing.T) {
 	}
 }
 
-func TestResolveAppliesDefaultsForMissingFields(t *testing.T) {
-	resolved, err := (&Config{}).Resolve()
+func TestResolveAcceptsDefaults(t *testing.T) {
+	resolved, err := Defaults().Resolve()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resolved.Icons {
+	if resolved.Icons.Enabled {
 		t.Fatal("empty config should keep icons off")
 	}
+	if !resolved.Icons.SpecialIcons {
+		t.Fatal("special icons should default on")
+	}
 	if resolved.DirSize.Timing != TimingBalanced {
-		t.Fatalf("empty config timing = %q, want balanced", resolved.DirSize.Timing)
+		t.Fatalf("default config timing = %q, want balanced", resolved.DirSize.Timing)
 	}
 }
 
 func TestResolvePreservesExplicitValues(t *testing.T) {
 	c := Config{
-		Icons: true,
+		Icons: IconsConfig{Enabled: true, SpecialIcons: true},
 		DirSize: DirSizeConfig{
 			DefaultDepth: 3,
 			Timing:       TimingRelaxed,
@@ -49,8 +55,11 @@ func TestResolvePreservesExplicitValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !resolved.Icons {
+	if !resolved.Icons.Enabled {
 		t.Fatal("icons should stay on")
+	}
+	if !resolved.Icons.SpecialIcons {
+		t.Fatal("special icons should stay on")
 	}
 	if resolved.DirSize.DefaultDepth != 3 {
 		t.Fatalf("depth = %d, want 3", resolved.DirSize.DefaultDepth)
@@ -79,7 +88,9 @@ func TestResolveAcceptsAllKnownColumns(t *testing.T) {
 		ColumnPermissions, ColumnLinks, ColumnOwner, ColumnGroup,
 		ColumnInode, ColumnBlocks,
 	}
-	resolved, err := (&Config{DefaultColumns: all}).Resolve()
+	cfg := Defaults()
+	cfg.DefaultColumns = all
+	resolved, err := cfg.Resolve()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +282,9 @@ func TestLoadReadsAndResolves(t *testing.T) {
 		t.Fatal(err)
 	}
 	contents := `
-icons = true
+[icons]
+enabled = true
+
 [dir_size]
 default_depth = 2
 timing = "relaxed"
@@ -284,7 +297,7 @@ timing = "relaxed"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.Icons {
+	if !cfg.Icons.Enabled {
 		t.Fatal("icons should be on")
 	}
 	if cfg.DirSize.DefaultDepth != 2 {
@@ -298,6 +311,63 @@ timing = "relaxed"
 	}
 }
 
+func TestLoadPreservesExplicitFalseOverDefaultTrue(t *testing.T) {
+	root := t.TempDir()
+	setConfigDirEnv(t, root)
+	dir := filepath.Join(root, "nls")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	contents := `
+[icons]
+special_icons = false
+`
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte(contents), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Icons.SpecialIcons {
+		t.Fatal("special_icons = false should override the default true value")
+	}
+	if cfg.DirSize.Timing != TimingBalanced {
+		t.Fatalf("timing = %q, want default balanced", cfg.DirSize.Timing)
+	}
+	if len(cfg.DefaultColumns) != len(Defaults().DefaultColumns) {
+		t.Fatalf("default columns were not preserved")
+	}
+}
+
+func TestExampleConfigLoads(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "config.example.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	setConfigDirEnv(t, root)
+	dir := filepath.Join(root, "nls")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Icons.Enabled {
+		t.Fatal("example config should leave icons disabled by default")
+	}
+	if !cfg.Icons.SpecialIcons {
+		t.Fatal("example config should include special_icons = true")
+	}
+}
+
 func TestLoadRejectsMisplacedDefaultColumns(t *testing.T) {
 	root := t.TempDir()
 	setConfigDirEnv(t, root)
@@ -306,7 +376,9 @@ func TestLoadRejectsMisplacedDefaultColumns(t *testing.T) {
 		t.Fatal(err)
 	}
 	contents := `
-icons = true
+[icons]
+enabled = true
+
 [dir_size]
 default_depth = 0
 timing = "balanced"

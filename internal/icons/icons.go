@@ -12,13 +12,14 @@ type Set int
 
 const (
 	SetNone Set = iota
+	SetNerdBasic
 	SetNerd
 )
 
 // Resolve picks an icon set from flags, config, and environment.
 // Precedence: noIcons flag > NLS_ICONS env > configEnabled > default off.
 // Icons are off by default to match Nushell ls.
-func Resolve(noIcons bool, configEnabled bool) Set {
+func Resolve(noIcons bool, configEnabled bool, specialIcons bool) Set {
 	if noIcons {
 		return SetNone
 	}
@@ -27,6 +28,9 @@ func Resolve(noIcons bool, configEnabled bool) Set {
 	}
 	if !nerdFontAvailable() {
 		return SetNone
+	}
+	if !specialIcons {
+		return SetNerdBasic
 	}
 	return SetNerd
 }
@@ -68,22 +72,16 @@ func nerdFontAvailable() bool {
 }
 
 // For returns the icon for an entry kind.
-func For(kind listing.Kind, set Set) string {
-	if set == SetNerd {
-		return nerdIcon(kind)
+func For(entry listing.Entry, set Set) string {
+	if set != SetNerd {
+		if set == SetNerdBasic {
+			return basicIcon(entry.Kind)
+		}
+		return ""
 	}
-	return ""
-}
-
-func nerdIcon(kind listing.Kind) string {
-	switch kind {
-	case listing.KindDirectory:
-		return "\uf07b "
-	case listing.KindSymlink:
-		return "\uf0c1 "
-	case listing.KindExecutable:
-		return "\uf013 "
-	default:
-		return "\uf15b "
+	icon := MatchIcon(entry.Name)
+	if icon != "" {
+		return icon
 	}
+	return basicIcon(entry.Kind)
 }

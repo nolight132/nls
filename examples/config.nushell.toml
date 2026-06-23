@@ -1,0 +1,10 @@
+default_columns = [
+    "id",
+    "name",
+    "type",
+    "size",
+    "modified",
+]
+
+[icons]
+enabled = false

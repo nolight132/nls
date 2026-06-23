@@ -17,7 +17,14 @@ to traditional shells and environments without requiring users to switch to Nush
 </div>
 
 <div align="center">
-<img width="820" height="563" alt="image" src="https://github.com/user-attachments/assets/bf3c69f0-7263-46d3-b0cb-ad319d029a84" />
+    <img width="833" height="601" alt="image" src="https://github.com/user-attachments/assets/d81304bb-bda4-4419-8729-c01c39430e97" />
+</div>
+<div align="center">
+    <sub>
+      <code>ls</code> is an alias for <code>nls</code> in this screenshot.
+      A more Nushell-like configuration is available in
+      <a href="./examples/config.nushell.toml"><code>config.nushell.toml</code></a>.
+    </sub>
 </div>
 
 ---

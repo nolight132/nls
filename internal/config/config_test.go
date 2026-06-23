@@ -342,7 +342,7 @@ special_icons = false
 }
 
 func TestExampleConfigLoads(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "config.example.toml"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "examples", "config.default.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}

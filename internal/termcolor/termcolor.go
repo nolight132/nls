@@ -38,7 +38,7 @@ func (s *Style) Header(value string) string {
 	if !s.enabled {
 		return value
 	}
-	return color.New(color.FgGreen).Sprint(value)
+	return color.New(color.FgGreen, color.Bold).Sprint(value)
 }
 
 // Index colors the index column
@@ -46,7 +46,7 @@ func (s *Style) Index(value string) string {
 	if !s.enabled {
 		return value
 	}
-	return color.New(color.FgGreen).Sprint(value)
+	return color.New(color.FgGreen, color.Bold).Sprint(value)
 }
 
 // Name colors a filename using LS_COLORS-compatible rules.

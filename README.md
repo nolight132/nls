@@ -138,13 +138,6 @@ nls -1 ~/bin | xargs -I{} echo {}
 nls --json | jq .
 ```
 
-Enable icons:
-
-```bash
-NLS_ICONS=1 nls
-NLS_ICONS=nerd nls
-```
-
 ---
 
 ## Configuration
@@ -157,39 +150,8 @@ $XDG_CONFIG_HOME/nls/config.toml        (Linux/macOS, XDG set)
 %APPDATA%\nls\config.toml               (Windows)
 ```
 
-A missing file is fine; built-in defaults apply. See `config.example.toml`
-at the repo root for a commented template. The initial schema covers:
-
-```toml
-icons = false
-
-default_columns = [    # columns shown in interactive table mode, in order
-    "id", "name", "type", "size", "modified",
-]
-
-[dir_size]
-default_depth = 0      # max walk depth when --estimate-depth is not passed (0 = unlimited)
-timing = "balanced"    # strict | balanced | relaxed
-```
-
-`timing` picks a named budget preset for bounded directory size estimation on
-a TTY. The concrete millisecond/entry caps are derived from the name and are
-not exposed in the file:
-
-| Preset     | Trade-off                                     |
-| ---------- | --------------------------------------------- |
-| `strict`   | Aggressive caps, stays snappy on huge trees   |
-| `balanced` | Default, enough headroom for typical repos    |
-| `relaxed`  | Generous, prefers accurate sizes over latency |
-
-`default_columns` controls which columns appear in interactive table mode and
-their order. Omit a column to hide it; list one to enable it by default.
-Available columns: `id`, `name`, `type`, `size`, `modified`, `accessed`,
-`changed`, `permissions`, `links`, `owner`, `group`, `inode`, `blocks`.
-Flags `-i`, `-s`, `-l` still append their columns if not already listed.
-
-Precedence, highest to lowest: command-line flags, environment variables
-(`NLS_ICONS`, `NERD_FONT`, ...), config file, built-in defaults.
+See [`examples/config.default.toml`](https://github.com/nolight132/nls/blob/main/examples/config.default.toml) for a commented template.
+Precedence, highest to lowest: command-line flags, environment variables (`NLS_ICONS`, `NERD_FONT`, ...), config file, built-in defaults.
 
 ---
 

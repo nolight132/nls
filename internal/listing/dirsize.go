@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/nolight132/nls/internal/config"
 )
 
 const (
@@ -22,8 +24,47 @@ type dirSizeResult struct {
 	approx bool
 }
 
+type dirSizeCaps struct {
+	WalkDuration      time.Duration
+	ListingDuration   time.Duration
+	MaxWalkEntries    int
+	MaxDirsPerListing int
+	MaxDepth          int
+}
+
+func dirSizeCapsFor(depth int, precise bool) dirSizeCaps {
+	if precise {
+		return dirSizeCaps{}
+	}
+	if depth == EstimateDepthMax {
+		return dirSizeCaps{MaxWalkEntries: 200000, MaxDirsPerListing: 50}
+	}
+
+	caps := dirSizeCaps{MaxDepth: config.User.DirSize.DefaultDepth}
+	switch strings.ToLower(strings.TrimSpace(config.User.DirSize.Timing)) {
+	case "unlimited":
+		return caps
+	case "strict":
+		caps.WalkDuration = 25 * time.Millisecond
+		caps.ListingDuration = 60 * time.Millisecond
+		caps.MaxWalkEntries = 200
+		caps.MaxDirsPerListing = 4
+	case "relaxed":
+		caps.WalkDuration = 200 * time.Millisecond
+		caps.ListingDuration = 500 * time.Millisecond
+		caps.MaxWalkEntries = 2000
+		caps.MaxDirsPerListing = 12
+	default:
+		caps.WalkDuration = maxDirWalkDuration
+		caps.ListingDuration = maxListingEstimate
+		caps.MaxWalkEntries = maxDirWalkEntries
+		caps.MaxDirsPerListing = maxDirsPerListingDefault
+	}
+	return caps
+}
+
 // estimateDirectorySizes fills Size for directory entries by summing file contents.
-func estimateDirectorySizes(parent string, entries []Entry, depth int, limits Limits) {
+func estimateDirectorySizes(parent string, entries []Entry, depth int, precise bool) {
 	type job struct {
 		idx  int
 		path string
@@ -32,37 +73,19 @@ func estimateDirectorySizes(parent string, entries []Entry, depth int, limits Li
 	bounded := depth == EstimateDepthBounded
 	maxMode := depth == EstimateDepthMax
 	maxWalkDepth := max(depth, 0)
-
-	if maxMode {
-		limits = SafetyLimits()
-	}
-	if bounded && limits == (Limits{}) {
-		limits = DefaultBoundedLimits()
-	}
-	maxDirs := limits.MaxDirsPerListing
-	if maxDirs <= 0 {
-		maxDirs = maxDirsPerListingDefault
-	}
-	maxWalkEntries := limits.MaxWalkEntries
-	if maxWalkEntries <= 0 {
-		maxWalkEntries = maxDirWalkEntries
-	}
-	walkBudget := limits.WalkDuration
-	if walkBudget <= 0 {
-		walkBudget = maxDirWalkDuration
-	}
-	listingBudget := limits.ListingDuration
-	if listingBudget <= 0 {
-		listingBudget = maxListingEstimate
-	}
-	boundedMaxDepth := limits.MaxDepth
+	caps := dirSizeCapsFor(depth, precise)
+	maxDirs := caps.MaxDirsPerListing
+	maxWalkEntries := caps.MaxWalkEntries
+	walkBudget := caps.WalkDuration
+	listingBudget := caps.ListingDuration
+	boundedMaxDepth := caps.MaxDepth
 
 	jobs := make([]job, 0, len(entries))
 	for i, e := range entries {
 		if e.Kind != KindDirectory {
 			continue
 		}
-		if (bounded || maxMode) && len(jobs) >= maxDirs {
+		if (bounded || maxMode) && maxDirs > 0 && len(jobs) >= maxDirs {
 			break
 		}
 		jobs = append(jobs, job{idx: i, path: filepath.Join(parent, e.Name)})
@@ -72,7 +95,7 @@ func estimateDirectorySizes(parent string, entries []Entry, depth int, limits Li
 	}
 
 	var listingDeadline time.Time
-	if bounded {
+	if bounded && listingBudget > 0 {
 		listingDeadline = time.Now().Add(listingBudget)
 	}
 	workers := min(len(jobs), maxDirWorkers)
@@ -84,7 +107,7 @@ func estimateDirectorySizes(parent string, entries []Entry, depth int, limits Li
 		go func() {
 			defer wg.Done()
 			for j := range ch {
-				if bounded && time.Now().After(listingDeadline) {
+				if bounded && !listingDeadline.IsZero() && time.Now().After(listingDeadline) {
 					continue
 				}
 				result := sumDirSize(j.path, listingDeadline, bounded, maxWalkDepth, boundedMaxDepth, walkBudget, maxWalkEntries)
@@ -103,9 +126,9 @@ func estimateDirectorySizes(parent string, entries []Entry, depth int, limits Li
 
 func sumDirSize(root string, listingDeadline time.Time, bounded bool, maxWalkDepth, boundedMaxDepth int, walkBudget time.Duration, maxWalkEntries int) dirSizeResult {
 	var walkDeadline time.Time
-	if bounded {
+	if bounded && walkBudget > 0 {
 		walkDeadline = time.Now().Add(walkBudget)
-		if listingDeadline.Before(walkDeadline) {
+		if !listingDeadline.IsZero() && listingDeadline.Before(walkDeadline) {
 			walkDeadline = listingDeadline
 		}
 	}
@@ -132,11 +155,11 @@ func sumDirSize(root string, listingDeadline time.Time, bounded bool, maxWalkDep
 			}
 			return nil
 		}
-		if bounded && time.Now().After(walkDeadline) {
+		if bounded && !walkDeadline.IsZero() && time.Now().After(walkDeadline) {
 			truncated = true
 			return fs.SkipAll
 		}
-		if count >= maxWalkEntries {
+		if maxWalkEntries > 0 && count >= maxWalkEntries {
 			truncated = true
 			return fs.SkipAll
 		}

@@ -47,6 +47,9 @@ func TestLoadUserConfigFallsBackOnInvalidConfig(t *testing.T) {
 	if !columnsEqual(got.DefaultColumns, config.Defaults().DefaultColumns) {
 		t.Fatalf("columns = %v, want defaults", got.DefaultColumns)
 	}
+	if !columnsEqual(config.User.DefaultColumns, config.Defaults().DefaultColumns) {
+		t.Fatalf("global columns = %v, want defaults", config.User.DefaultColumns)
+	}
 	if !strings.Contains(errOut.String(), "using defaults") {
 		t.Fatalf("warning = %q, want using defaults", errOut.String())
 	}
@@ -71,7 +74,8 @@ func TestUseTableRejectsAlternateOutputShapes(t *testing.T) {
 }
 
 func TestJSONDisablesFastPath(t *testing.T) {
-	opts := buildListOptions(&Config{JSON: true}, false, config.Defaults())
+	setUserForTest(t, config.Defaults())
+	opts := buildListOptions(&Config{JSON: true}, false)
 	if opts.FastPath {
 		t.Fatal("JSON output needs full metadata")
 	}
@@ -80,60 +84,60 @@ func TestJSONDisablesFastPath(t *testing.T) {
 	}
 }
 
-func TestEstimateDepthMaxFlag(t *testing.T) {
-	opts := buildListOptions(&Config{
-		EstimateDepth: listing.EstimateDepthMax,
-		EstimateSet:   true,
-	}, false, config.Defaults())
+func TestInteractiveUsesBoundedEstimateWhenConfigEnabled(t *testing.T) {
+	setUserForTest(t, config.Defaults())
+	opts := buildListOptions(&Config{}, true)
+	if opts.EstimateDepth != listing.EstimateDepthBounded {
+		t.Fatalf("estimate depth = %d, want bounded", opts.EstimateDepth)
+	}
+	if !opts.EstimateSizes {
+		t.Fatal("interactive default should enable size estimation when config enables dir_size")
+	}
+}
+
+func TestInteractiveUsesConfigDefaultDepthInListing(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.DirSize.DefaultDepth = 2
+	setUserForTest(t, cfg)
+	opts := buildListOptions(&Config{}, true)
+	if opts.EstimateDepth != listing.EstimateDepthBounded {
+		t.Fatalf("estimate depth = %d, want bounded", opts.EstimateDepth)
+	}
+	if !opts.EstimateSizes {
+		t.Fatal("interactive default should enable size estimation")
+	}
+}
+
+func TestPreciseEnablesExactUnlimitedEstimates(t *testing.T) {
+	setUserForTest(t, config.Defaults())
+	opts := buildListOptions(&Config{Precise: true}, false)
+	if !opts.EstimateSizes {
+		t.Fatal("precise should enable size estimation")
+	}
 	if opts.EstimateDepth != listing.EstimateDepthMax {
 		t.Fatalf("estimate depth = %d, want max", opts.EstimateDepth)
 	}
-}
-
-func TestEstimateDepthExplicitZeroIsBounded(t *testing.T) {
-	opts := buildListOptions(&Config{EstimateSet: true}, false, config.Defaults())
-	if opts.EstimateDepth != listing.EstimateDepthBounded {
-		t.Fatalf("estimate depth = %d, want bounded", opts.EstimateDepth)
+	if !opts.Precise {
+		t.Fatal("precise flag should pass through to listing")
+	}
+	if opts.FastPath {
+		t.Fatal("precise needs full metadata")
 	}
 }
 
-func TestBuildListOptionsAppliesConfigLimits(t *testing.T) {
-	userCfg := config.Config{
-		Icons: config.IconsConfig{Enabled: true},
-		DirSize: config.DirSizeConfig{
-			DefaultDepth: 4,
-			Timing:       config.TimingRelaxed,
-		},
-	}
-	opts := buildListOptions(&Config{EstimateSet: true}, true, userCfg)
-	if opts.EstimateDepth != listing.EstimateDepthBounded {
-		t.Fatalf("estimate depth = %d, want bounded", opts.EstimateDepth)
-	}
-	limits := userCfg.Limits()
-	if opts.BoundedLimits.MaxDepth != 4 {
-		t.Fatalf("bounded MaxDepth = %d, want 4", opts.BoundedLimits.MaxDepth)
-	}
-	if opts.BoundedLimits.WalkDuration != limits.WalkDuration {
-		t.Fatalf("bounded walk budget = %v, want %v", opts.BoundedLimits.WalkDuration, limits.WalkDuration)
-	}
-	if opts.BoundedLimits.MaxDirsPerListing != limits.MaxDirsPerListing {
-		t.Fatalf("bounded dirs cap = %d, want %d", opts.BoundedLimits.MaxDirsPerListing, limits.MaxDirsPerListing)
-	}
-}
-
-func TestBuildListOptionsUsesDefaultsWhenBounded(t *testing.T) {
-	opts := buildListOptions(&Config{EstimateSet: true}, true, config.Defaults())
-	if opts.BoundedLimits == (listing.Limits{}) {
-		t.Fatal("bounded limits should not be zero when config defaults are applied")
-	}
-	def := listing.DefaultBoundedLimits()
-	if opts.BoundedLimits.WalkDuration != def.WalkDuration {
-		t.Fatalf("default walk budget = %v, want %v", opts.BoundedLimits.WalkDuration, def.WalkDuration)
+func TestInteractiveSkipsEstimateWhenConfigDisabled(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.DirSize.Enabled = false
+	setUserForTest(t, cfg)
+	opts := buildListOptions(&Config{}, true)
+	if opts.EstimateSizes {
+		t.Fatal("dir_size.enabled=false should disable default interactive estimation")
 	}
 }
 
 func TestBuildColumnsDefaults(t *testing.T) {
-	cols := buildColumns(&Config{}, config.Defaults())
+	setUserForTest(t, config.Defaults())
+	cols := buildColumns(&Config{})
 	want := []string{"id", "name", "size", "modified"}
 	if len(cols) != len(want) {
 		t.Fatalf("cols = %v, want %v", cols, want)
@@ -153,7 +157,8 @@ func TestBuildColumnsConfigOverridesOrder(t *testing.T) {
 			config.ColumnSize,
 		},
 	}
-	cols := buildColumns(&Config{}, userCfg)
+	setUserForTest(t, userCfg)
+	cols := buildColumns(&Config{})
 	if cols[0] != "name" || cols[1] != "id" || cols[2] != "size" {
 		t.Fatalf("cols = %v, want [name id size]", cols)
 	}
@@ -163,7 +168,8 @@ func TestBuildColumnsFlagsAppendIfMissing(t *testing.T) {
 	userCfg := config.Config{
 		DefaultColumns: []config.ColumnEntry{config.ColumnName, config.ColumnSize},
 	}
-	cols := buildColumns(&Config{Inode: true, Blocks: true, Long: true}, userCfg)
+	setUserForTest(t, userCfg)
+	cols := buildColumns(&Config{Inode: true, Blocks: true, Long: true})
 	want := []string{"name", "size", "inode", "blocks", "permissions"}
 	if len(cols) != len(want) {
 		t.Fatalf("cols = %v, want %v", cols, want)
@@ -181,7 +187,8 @@ func TestBuildColumnsFlagsDontDuplicateConfigColumns(t *testing.T) {
 			config.ColumnName, config.ColumnInode, config.ColumnPermissions,
 		},
 	}
-	cols := buildColumns(&Config{Inode: true, Long: true}, userCfg)
+	setUserForTest(t, userCfg)
+	cols := buildColumns(&Config{Inode: true, Long: true})
 	count := 0
 	for _, c := range cols {
 		if c == "inode" {
@@ -190,36 +197,6 @@ func TestBuildColumnsFlagsDontDuplicateConfigColumns(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("inode appeared %d times in %v, want 1", count, cols)
-	}
-}
-
-func TestEstimateDepthFlagSet(t *testing.T) {
-	var depth int
-	var set bool
-	flag := &estimateDepthFlag{value: &depth, set: &set}
-
-	if err := flag.Set("max"); err != nil {
-		t.Fatal(err)
-	}
-	if depth != listing.EstimateDepthMax || !set {
-		t.Fatalf("max: depth=%d set=%v", depth, set)
-	}
-	if flag.String() != "max" {
-		t.Fatalf("String() = %q", flag.String())
-	}
-
-	if err := flag.Set("3"); err != nil {
-		t.Fatal(err)
-	}
-	if depth != 3 {
-		t.Fatalf("depth = %d, want 3", depth)
-	}
-
-	if flag.Set("-1") == nil {
-		t.Fatal("expected error for negative depth")
-	}
-	if flag.Set("nope") == nil {
-		t.Fatal("expected error for invalid depth")
 	}
 }
 
@@ -233,4 +210,11 @@ func columnsEqual(a, b []config.ColumnEntry) bool {
 		}
 	}
 	return true
+}
+
+func setUserForTest(t *testing.T, cfg config.Config) {
+	t.Helper()
+	prev := config.User
+	config.User = cfg
+	t.Cleanup(func() { config.User = prev })
 }

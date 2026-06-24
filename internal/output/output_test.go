@@ -21,7 +21,7 @@ func blocks(entries ...listing.Entry) []listing.Block {
 func TestRenderPlain(t *testing.T) {
 	entries := []listing.Entry{{Name: "a"}, {Name: "b"}}
 	var buf bytes.Buffer
-	if err := Render(&buf, blocks(entries...), Options{IsTTY: false, Plain: PlainOne}); err != nil {
+	if err := Render(&buf, blocks(entries...), RenderOptions{IsTTY: false, Plain: PlainOne}); err != nil {
 		t.Fatal(err)
 	}
 	if buf.String() != "a\nb\n" {
@@ -39,7 +39,7 @@ func TestRenderPlainLong(t *testing.T) {
 		Permissions: "-rw-r--r--",
 	}}
 	var buf bytes.Buffer
-	if err := Render(&buf, blocks(entries...), Options{
+	if err := Render(&buf, blocks(entries...), RenderOptions{
 		IsTTY: false,
 		Plain: PlainLong,
 		Human: true,
@@ -64,7 +64,7 @@ func TestRenderJSON(t *testing.T) {
 	}}
 
 	var buf bytes.Buffer
-	if err := Render(&buf, blocks(entries...), Options{JSON: true, Human: true, Now: now}); err != nil {
+	if err := Render(&buf, blocks(entries...), RenderOptions{JSON: true, Human: true, Now: now}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -88,12 +88,13 @@ func TestRenderTable(t *testing.T) {
 	}}
 
 	var buf bytes.Buffer
-	if err := Render(&buf, blocks(entries...), Options{
+	if err := Render(&buf, blocks(entries...), RenderOptions{
 		UseTable: true,
 		IsTTY:    true,
 		Color:    false,
 		IconSet:  icons.SetNone,
 		Now:      time.Now(),
+		Columns:  []string{"id", "name", "type", "size", "modified"},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +122,7 @@ func TestRenderTableCustomColumns(t *testing.T) {
 	}}
 
 	var buf bytes.Buffer
-	if err := Render(&buf, blocks(entries...), Options{
+	if err := Render(&buf, blocks(entries...), RenderOptions{
 		UseTable: true,
 		IsTTY:    true,
 		Color:    false,
@@ -143,7 +144,7 @@ func TestRenderTableCustomColumns(t *testing.T) {
 func TestRenderTableColumnsOmitType(t *testing.T) {
 	entries := []listing.Entry{{Name: "docs", Kind: listing.KindDirectory}}
 	var buf bytes.Buffer
-	if err := Render(&buf, blocks(entries...), Options{
+	if err := Render(&buf, blocks(entries...), RenderOptions{
 		UseTable: true,
 		IsTTY:    true,
 		Color:    false,
@@ -165,7 +166,7 @@ func TestRenderTableColumnsOmitType(t *testing.T) {
 func TestRenderTableIgnoresUnknownColumn(t *testing.T) {
 	entries := []listing.Entry{{Name: "docs"}}
 	var buf bytes.Buffer
-	if err := Render(&buf, blocks(entries...), Options{
+	if err := Render(&buf, blocks(entries...), RenderOptions{
 		UseTable: true,
 		IsTTY:    true,
 		Color:    false,
@@ -184,7 +185,7 @@ func TestRenderTableIgnoresUnknownColumn(t *testing.T) {
 func TestRenderClassify(t *testing.T) {
 	entries := []listing.Entry{{Name: "bin", Kind: listing.KindDirectory}}
 	var buf bytes.Buffer
-	if err := Render(&buf, blocks(entries...), Options{
+	if err := Render(&buf, blocks(entries...), RenderOptions{
 		IsTTY:    false,
 		Plain:    PlainOne,
 		Classify: true,

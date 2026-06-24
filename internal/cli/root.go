@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/nolight132/nls/internal/config"
@@ -19,66 +18,35 @@ import (
 
 // Config holds parsed CLI flags.
 type Config struct {
-	All           bool
-	AlmostAll     bool
-	Long          bool
-	Human         bool
-	One           bool
-	Recursive     bool
-	Reverse       bool
-	SortTime      bool
-	SortSize      bool
-	SortExt       bool
-	Unsorted      bool
-	Directory     bool
-	Classify      bool
-	DirSlash      bool
-	IgnoreBack    bool
-	Dereference   bool
-	Commas        bool
-	QuoteName     bool
-	FullTime      bool
-	DirsFirst     bool
-	Inode         bool
-	Blocks        bool
-	SortAccess    bool
-	SortChange    bool
-	NoIcons       bool
-	NoColor       bool
-	JSON          bool
-	EstimateDepth int
-	EstimateSet   bool
-	Paths         []string
-}
-
-type estimateDepthFlag struct {
-	value *int
-	set   *bool
-}
-
-func (f *estimateDepthFlag) Set(s string) error {
-	*f.set = true
-	if s == "max" {
-		*f.value = listing.EstimateDepthMax
-		return nil
-	}
-	n, err := strconv.Atoi(s)
-	if err != nil || n < 0 {
-		return fmt.Errorf("estimate-depth must be a non-negative integer or \"max\"")
-	}
-	*f.value = n
-	return nil
-}
-
-func (f *estimateDepthFlag) String() string {
-	if *f.value == listing.EstimateDepthMax {
-		return "max"
-	}
-	return strconv.Itoa(*f.value)
-}
-
-func (f *estimateDepthFlag) Type() string {
-	return "depth"
+	All         bool
+	AlmostAll   bool
+	Long        bool
+	Human       bool
+	One         bool
+	Recursive   bool
+	Reverse     bool
+	SortTime    bool
+	SortSize    bool
+	SortExt     bool
+	Unsorted    bool
+	Directory   bool
+	Classify    bool
+	DirSlash    bool
+	IgnoreBack  bool
+	Dereference bool
+	Commas      bool
+	QuoteName   bool
+	FullTime    bool
+	DirsFirst   bool
+	Inode       bool
+	Blocks      bool
+	SortAccess  bool
+	SortChange  bool
+	NoIcons     bool
+	NoColor     bool
+	JSON        bool
+	Precise     bool
+	Paths       []string
 }
 
 // Root returns the root cobra command.
@@ -136,13 +104,7 @@ func Root() *cobra.Command {
 	cmd.Flags().BoolVar(&cfg.NoIcons, "no-icons", false, "disable icons")
 	cmd.Flags().BoolVar(&cfg.NoColor, "no-color", false, "disable colors")
 	cmd.Flags().BoolVar(&cfg.JSON, "json", false, "output JSON")
-	cmd.Flags().Var(
-		&estimateDepthFlag{value: &cfg.EstimateDepth, set: &cfg.EstimateSet},
-		"estimate-depth",
-		`sum file sizes up to DEPTH levels below each directory;
-use max for unlimited depth (entry-capped so it cannot hang on huge trees);
-table mode uses bounded estimation when unset`,
-	)
+	cmd.Flags().BoolVarP(&cfg.Precise, "precise", "P", false, "compute exact directory sizes without depth, time, or entry limits")
 	cmd.Flags().BoolP("version", "", false, "version for nls")
 	configureHelp(cmd)
 
@@ -157,7 +119,7 @@ func configureHelp(cmd *cobra.Command) {
 		"quote-name", "full-time", "group-directories-first", "inode", "size-blocks",
 	)
 	markGroup(cmd, "Plain-output layout flags", "one", "comma")
-	markGroup(cmd, "nls presentation flags", "json", "estimate-depth", "no-icons", "no-color", "help", "version")
+	markGroup(cmd, "nls presentation flags", "json", "precise", "no-icons", "no-color", "help", "version")
 
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		out := cmd.OutOrStdout()
@@ -226,21 +188,23 @@ func formatFlag(flag *pflag.Flag) string {
 	return b.String()
 }
 
-func buildListOptions(cfg *Config, interactive bool, userCfg config.Config) listing.Options {
-	estimateDepth := listing.EstimateDepthOff
-	switch {
-	case cfg.EstimateSet:
-		estimateDepth = cfg.EstimateDepth
-	case interactive:
+func buildListOptions(cfg *Config, interactive bool) listing.ListOptions {
+	estimateSizes := cfg.Precise || (interactive && config.User.DirSize.Enabled)
+	estimateDepth := 0
+	if cfg.Precise {
+		estimateDepth = listing.EstimateDepthMax
+	} else if estimateSizes {
 		estimateDepth = listing.EstimateDepthBounded
 	}
-	needsFull := listing.NeedsFullMetadata(listing.Options{
+	needsFull := listing.NeedsFullMetadata(listing.ListOptions{
 		All:           cfg.All,
 		AlmostAll:     cfg.AlmostAll,
 		Dereference:   cfg.Dereference,
 		Directory:     cfg.Directory,
 		Recursive:     cfg.Recursive,
+		EstimateSizes: estimateSizes,
 		EstimateDepth: estimateDepth,
+		Precise:       cfg.Precise,
 		LongListing:   cfg.Long,
 		ShowInode:     cfg.Inode,
 		ShowBlocks:    cfg.Blocks,
@@ -249,15 +213,16 @@ func buildListOptions(cfg *Config, interactive bool, userCfg config.Config) list
 		Sort:          buildSort(cfg),
 	})
 
-	return listing.Options{
+	return listing.ListOptions{
 		All:           cfg.All,
 		AlmostAll:     cfg.AlmostAll,
 		IgnoreBackups: cfg.IgnoreBack,
 		Dereference:   cfg.Dereference,
 		Directory:     cfg.Directory,
 		Recursive:     cfg.Recursive,
+		EstimateSizes: estimateSizes,
 		EstimateDepth: estimateDepth,
-		BoundedLimits: userCfg.Limits(),
+		Precise:       cfg.Precise,
 		FastPath:      !interactive && !cfg.JSON && !needsFull,
 		ResolveAbs:    interactive || cfg.JSON,
 		LongListing:   cfg.Long,
@@ -297,9 +262,9 @@ func run(cfg *Config) error {
 		iconSet = icons.Resolve(cfg.NoIcons, userCfg.Icons.Enabled, userCfg.Icons.SpecialIcons)
 	}
 
-	listOpts := buildListOptions(cfg, interactive, userCfg)
+	listOpts := buildListOptions(cfg, interactive)
 
-	outOpts := output.Options{
+	outOpts := output.RenderOptions{
 		Human:      cfg.Human || interactive,
 		Long:       cfg.Long,
 		JSON:       cfg.JSON,
@@ -315,22 +280,22 @@ func run(cfg *Config) error {
 		ShowBlocks: cfg.Blocks,
 		TimeField:  timeField(cfg),
 		UseTable:   interactive,
-		Columns:    buildColumns(cfg, userCfg),
+		Columns:    buildColumns(cfg),
 	}
 
 	return output.RenderFast(os.Stdout, expanded, listOpts, outOpts)
 }
 
 func loadUserConfig(w io.Writer) config.Config {
-	userCfg, err := config.Load()
+	userCfg, err := config.LoadUser()
 	if err != nil {
 		fmt.Fprintf(w, "nls: warning: %v; using defaults\n", err)
-		return config.Defaults()
 	}
 	return userCfg
 }
 
-func buildColumns(cfg *Config, userCfg config.Config) []string {
+func buildColumns(cfg *Config) []string {
+	userCfg := config.User
 	cols := make([]string, 0, len(userCfg.DefaultColumns)+3)
 	seen := make(map[string]bool, len(userCfg.DefaultColumns)+3)
 	for _, c := range userCfg.DefaultColumns {

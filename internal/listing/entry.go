@@ -123,6 +123,6 @@ func BlockDotEntry(target, name string) Entry {
 	if err != nil {
 		return Entry{Name: name, Kind: KindDirectory}
 	}
-	entry, _ := entryFromInfo(target, name, info, Options{})
+	entry, _ := entryFromInfo(target, name, info, ListOptions{})
 	return entry
 }

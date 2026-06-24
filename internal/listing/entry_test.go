@@ -22,7 +22,7 @@ func TestReadDirSortsAlphabetically(t *testing.T) {
 		}
 	}
 
-	entries, err := ReadDir(dir, Options{})
+	entries, err := ReadDir(dir, ListOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestReadDirHidden(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	without, err := ReadDir(dir, Options{})
+	without, err := ReadDir(dir, ListOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestReadDirHidden(t *testing.T) {
 		t.Fatalf("without all: %#v", without)
 	}
 
-	with, err := ReadDir(dir, Options{All: true})
+	with, err := ReadDir(dir, ListOptions{All: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestRecursiveAllSkipsDotEntries(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	blocks, err := List([]string{dir}, Options{All: true, Recursive: true, Sort: SortOptions{Field: SortByName}})
+	blocks, err := List([]string{dir}, ListOptions{All: true, Recursive: true, Sort: SortOptions{Field: SortByName}})
 	if err != nil {
 		t.Fatal(err)
 	}

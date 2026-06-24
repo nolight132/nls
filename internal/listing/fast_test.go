@@ -14,7 +14,7 @@ func TestFastListNames(t *testing.T) {
 		}
 	}
 
-	names, err := FastListNames(dir, Options{Sort: SortOptions{Field: SortByName}})
+	names, err := FastListNames(dir, ListOptions{Sort: SortOptions{Field: SortByName}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func TestFastListNamesFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	names, err := FastListNames(path, Options{Sort: SortOptions{Field: SortByName}})
+	names, err := FastListNames(path, ListOptions{Sort: SortOptions{Field: SortByName}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,10 +40,10 @@ func TestFastListNamesFile(t *testing.T) {
 }
 
 func TestCanFastListDefault(t *testing.T) {
-	if !CanFastList(Options{Sort: SortOptions{Field: SortByName}}) {
+	if !CanFastList(ListOptions{Sort: SortOptions{Field: SortByName}}) {
 		t.Fatal("expected fast list for default name sort")
 	}
-	if CanFastList(Options{LongListing: true}) {
+	if CanFastList(ListOptions{LongListing: true}) {
 		t.Fatal("long listing should not fast list")
 	}
 }

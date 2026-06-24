@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
+
+	"github.com/nolight132/nls/internal/config"
 )
 
 func TestEstimateDirectorySizesUnlimited(t *testing.T) {
@@ -23,7 +26,7 @@ func TestEstimateDirectorySizesUnlimited(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	entries, err := ReadDir(dir, Options{EstimateDepth: EstimateDepthMax})
+	entries, err := ReadDir(dir, ListOptions{EstimateSizes: true, EstimateDepth: EstimateDepthMax})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +61,7 @@ func TestEstimateDirectorySizesRespectsWalkDepth(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	entries, err := ReadDir(dir, Options{EstimateDepth: 1})
+	entries, err := ReadDir(dir, ListOptions{EstimateSizes: true, EstimateDepth: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +71,7 @@ func TestEstimateDirectorySizesRespectsWalkDepth(t *testing.T) {
 		t.Fatalf("depth 1 size = %d, want %d", docs.Size, want)
 	}
 
-	entries, err = ReadDir(dir, Options{EstimateDepth: 2})
+	entries, err = ReadDir(dir, ListOptions{EstimateSizes: true, EstimateDepth: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +81,7 @@ func TestEstimateDirectorySizesRespectsWalkDepth(t *testing.T) {
 		t.Fatalf("depth 2 size = %d, want %d", docs.Size, want)
 	}
 
-	entries, err = ReadDir(dir, Options{EstimateDepth: 3})
+	entries, err = ReadDir(dir, ListOptions{EstimateSizes: true, EstimateDepth: 3})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,13 +136,64 @@ func TestDiskUsageIgnoresSparseApparentSize(t *testing.T) {
 		t.Fatalf("disk usage = %d, want %d", got, want)
 	}
 
-	entries, err := ReadDir(dir, Options{EstimateDepth: EstimateDepthMax})
+	entries, err := ReadDir(dir, ListOptions{EstimateSizes: true, EstimateDepth: EstimateDepthMax})
 	if err != nil {
 		t.Fatal(err)
 	}
 	data := findEntry(t, entries, "data")
 	if data.Size >= (1 << 30) {
 		t.Fatalf("estimated size = %d, should not use apparent size", data.Size)
+	}
+}
+
+func TestUnlimitedTimingEstimatesAllDirectories(t *testing.T) {
+	setConfigUserForTest(t, config.Config{DirSize: config.DirSizeConfig{DefaultDepth: 0, Timing: "unlimited"}})
+	dir := t.TempDir()
+	for i := range maxDirsPerListingDefault + 2 {
+		sub := filepath.Join(dir, "dir"+strconv.Itoa(i))
+		if err := os.Mkdir(sub, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(sub, "file"), make([]byte, 1000), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	entries, err := ReadDir(dir, ListOptions{EstimateSizes: true, EstimateDepth: EstimateDepthBounded})
+	if err != nil {
+		t.Fatal(err)
+	}
+	last := findEntry(t, entries, "dir"+strconv.Itoa(maxDirsPerListingDefault+1))
+	if last.Size == 0 {
+		t.Fatal("unlimited timing should estimate directories beyond the default cap")
+	}
+	if last.SizeApprox {
+		t.Fatal("unlimited timing should not mark small trees approximate")
+	}
+}
+
+func TestPreciseEstimatesBeyondEntryCap(t *testing.T) {
+	dir := t.TempDir()
+	big := filepath.Join(dir, "huge")
+	if err := os.Mkdir(big, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for i := range maxDirWalkEntries + 50 {
+		if err := os.WriteFile(filepath.Join(big, "f"+strconv.Itoa(i)), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	entries, err := ReadDir(dir, ListOptions{EstimateSizes: true, EstimateDepth: EstimateDepthMax, Precise: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	huge := findEntry(t, entries, "huge")
+	if huge.Size == 0 {
+		t.Fatal("precise should compute a non-zero size")
+	}
+	if huge.SizeApprox {
+		t.Fatal("precise should not mark entry-capped trees approximate")
 	}
 }
 
@@ -154,37 +208,23 @@ func findEntry(t *testing.T, entries []Entry, name string) Entry {
 	return Entry{}
 }
 
-func TestEstimateMaxSafetyNetTruncatesHugeTree(t *testing.T) {
+func TestSumDirSizeMarksApproxWhenEntryCapExceeded(t *testing.T) {
 	dir := t.TempDir()
-	big := filepath.Join(dir, "huge")
-	if err := os.Mkdir(big, 0o755); err != nil {
-		t.Fatal(err)
-	}
-
 	cap := 500
 	for i := range cap + 100 {
-		if err := os.WriteFile(filepath.Join(big, "f"+strconv.Itoa(i)), []byte("x"), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, "f"+strconv.Itoa(i)), []byte("x"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	entries, err := ReadDir(dir, Options{EstimateDepth: EstimateDepthBounded, BoundedLimits: Limits{
-		MaxWalkEntries:    cap,
-		MaxDirsPerListing: 10,
-		WalkDuration:      0,
-		ListingDuration:   0,
-	}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	huge := findEntry(t, entries, "huge")
-	if !huge.SizeApprox {
+	got := sumDirSize(dir, time.Time{}, false, 0, 0, 0, cap)
+	if !got.approx {
 		t.Fatal("should mark approx when entry cap is exceeded")
 	}
 }
 
-func TestSafetyLimitsHasNoTimeLimits(t *testing.T) {
-	s := SafetyLimits()
+func TestDirSizeCapsForMaxHaveNoTimeLimits(t *testing.T) {
+	s := dirSizeCapsFor(EstimateDepthMax, false)
 	if s.WalkDuration != 0 {
 		t.Fatalf("safety WalkDuration = %v, want 0 (no time limit)", s.WalkDuration)
 	}
@@ -197,6 +237,40 @@ func TestSafetyLimitsHasNoTimeLimits(t *testing.T) {
 	if s.MaxWalkEntries < 100000 {
 		t.Fatalf("safety MaxWalkEntries = %d, want >= 100000", s.MaxWalkEntries)
 	}
+}
+
+func TestDirSizeCapsUseConfigTimingAndDepth(t *testing.T) {
+	setConfigUserForTest(t, config.Config{DirSize: config.DirSizeConfig{DefaultDepth: 3, Timing: "relaxed"}})
+	caps := dirSizeCapsFor(EstimateDepthBounded, false)
+	if caps.MaxDepth != 3 {
+		t.Fatalf("MaxDepth = %d, want 3", caps.MaxDepth)
+	}
+	if caps.WalkDuration <= maxDirWalkDuration {
+		t.Fatalf("relaxed walk budget = %v, want > %v", caps.WalkDuration, maxDirWalkDuration)
+	}
+}
+
+func TestDirSizeCapsUnlimitedTimingHasNoLimits(t *testing.T) {
+	setConfigUserForTest(t, config.Config{DirSize: config.DirSizeConfig{DefaultDepth: 0, Timing: "unlimited"}})
+	caps := dirSizeCapsFor(EstimateDepthBounded, false)
+	if caps != (dirSizeCaps{}) {
+		t.Fatalf("unlimited caps = %+v, want zero caps", caps)
+	}
+}
+
+func TestPreciseIgnoresTimingLimits(t *testing.T) {
+	setConfigUserForTest(t, config.Config{DirSize: config.DirSizeConfig{DefaultDepth: 2, Timing: "strict"}})
+	caps := dirSizeCapsFor(EstimateDepthMax, true)
+	if caps != (dirSizeCaps{}) {
+		t.Fatalf("precise caps = %+v, want zero caps", caps)
+	}
+}
+
+func setConfigUserForTest(t *testing.T, cfg config.Config) {
+	t.Helper()
+	prev := config.User
+	config.User = cfg
+	t.Cleanup(func() { config.User = prev })
 }
 
 func TestTreeDepth(t *testing.T) {

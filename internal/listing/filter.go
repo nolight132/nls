@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-func includeName(name string, opts Options) bool {
+func includeName(name string, opts ListOptions) bool {
 	if opts.IgnoreBackups && strings.HasSuffix(name, "~") {
 		return false
 	}

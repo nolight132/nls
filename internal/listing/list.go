@@ -5,56 +5,15 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 const (
 	EstimateDepthMax = iota - 2
-	EstimateDepthOff
 	EstimateDepthBounded
 )
 
-// Limits holds the concrete budgets for bounded directory size estimation.
-// They are only consulted when EstimateDepth == EstimateDepthBounded.
-type Limits struct {
-	// WalkDuration caps a single directory walk.
-	WalkDuration time.Duration
-	// ListingDuration caps the total estimate work for one listing.
-	ListingDuration time.Duration
-	// MaxWalkEntries caps the number of entries walked per directory.
-	MaxWalkEntries int
-	// MaxDirsPerListing caps how many directories get estimated at all.
-	MaxDirsPerListing int
-	// MaxDepth caps walk depth; 0 means unlimited within the time budget.
-	MaxDepth int
-}
-
-// DefaultBoundedLimits returns the balanced budgets used when no user config
-// is present. These match the historical constants.
-func DefaultBoundedLimits() Limits {
-	return Limits{
-		WalkDuration:      maxDirWalkDuration,
-		ListingDuration:   maxListingEstimate,
-		MaxWalkEntries:    maxDirWalkEntries,
-		MaxDirsPerListing: maxDirsPerListingDefault,
-	}
-}
-
-// SafetyLimits returns generous caps applied to --estimate-depth max so that
-// full-walk mode cannot hang on huge filesystems like /. No time limits —
-// only an entry-count cap high enough to fully scan a typical home directory.
-func SafetyLimits() Limits {
-	return Limits{
-		WalkDuration:      0,
-		ListingDuration:   0,
-		MaxWalkEntries:    200000,
-		MaxDirsPerListing: 50,
-		MaxDepth:          0,
-	}
-}
-
-// Options control directory reads.
-type Options struct {
+// ListOptions control directory reads.
+type ListOptions struct {
 	All           bool
 	AlmostAll     bool
 	IgnoreBackups bool
@@ -70,10 +29,9 @@ type Options struct {
 	DirSlash      bool
 	QuoteNames    bool
 	Commas        bool
+	EstimateSizes bool
 	EstimateDepth int
-	// BoundedLimits applies when EstimateDepth == EstimateDepthBounded.
-	// A zero value falls back to DefaultBoundedLimits().
-	BoundedLimits Limits
+	Precise       bool
 	Sort          SortOptions
 }
 
@@ -86,7 +44,7 @@ type operand struct {
 }
 
 // List resolves paths into output blocks.
-func List(paths []string, opts Options) ([]Block, error) {
+func List(paths []string, opts ListOptions) ([]Block, error) {
 	if len(paths) == 0 {
 		paths = []string{"."}
 	}
@@ -176,7 +134,7 @@ func sortOperands(operands []operand, sort SortOptions) {
 	}
 }
 
-func listRecursive(dir string, opts Options) ([]Block, error) {
+func listRecursive(dir string, opts ListOptions) ([]Block, error) {
 	entries, err := readDirAt(dir, opts)
 	if err != nil {
 		return nil, err
@@ -209,7 +167,7 @@ func childPath(dir, name string) string {
 	return filepath.Join(dir, name)
 }
 
-func readDirAt(dir string, opts Options) ([]Entry, error) {
+func readDirAt(dir string, opts ListOptions) ([]Entry, error) {
 	if opts.Sort.Field == SortByNone {
 		return readDirAtUnsorted(dir, opts)
 	}
@@ -242,14 +200,14 @@ func readDirAt(dir string, opts Options) ([]Entry, error) {
 		out = appendDotEntriesFast(dir, out, fullMeta)
 	}
 
-	if opts.EstimateDepth != EstimateDepthOff {
-		estimateDirectorySizes(dir, out, opts.EstimateDepth, opts.BoundedLimits)
+	if opts.EstimateSizes {
+		estimateDirectorySizes(dir, out, opts.EstimateDepth, opts.Precise)
 	}
 	sortEntries(out, opts.Sort)
 	return out, nil
 }
 
-func readDirAtUnsorted(dir string, opts Options) ([]Entry, error) {
+func readDirAtUnsorted(dir string, opts ListOptions) ([]Entry, error) {
 	names, err := readDirNamesUnsorted(dir)
 	if err != nil {
 		return nil, err
@@ -272,8 +230,8 @@ func readDirAtUnsorted(dir string, opts Options) ([]Entry, error) {
 		out = append(out, entry)
 	}
 
-	if opts.EstimateDepth != EstimateDepthOff {
-		estimateDirectorySizes(dir, out, opts.EstimateDepth, opts.BoundedLimits)
+	if opts.EstimateSizes {
+		estimateDirectorySizes(dir, out, opts.EstimateDepth, opts.Precise)
 	}
 	return out, nil
 }
@@ -303,7 +261,7 @@ func statPath(path string, dereference bool) (os.FileInfo, error) {
 	return os.Lstat(path)
 }
 
-func entryFromInfo(fullPath, name string, info os.FileInfo, opts Options) (Entry, error) {
+func entryFromInfo(fullPath, name string, info os.FileInfo, opts ListOptions) (Entry, error) {
 	accessed, changed := fileTimes(info)
 	entry := Entry{
 		Name:        name,
@@ -340,7 +298,7 @@ func entryFromInfo(fullPath, name string, info os.FileInfo, opts Options) (Entry
 	return entry, nil
 }
 
-func classify(dir string, e fs.DirEntry, opts Options) (Entry, error) {
+func classify(dir string, e fs.DirEntry, opts ListOptions) (Entry, error) {
 	full := filepath.Join(dir, e.Name())
 	info, err := entryInfo(full, e, opts.Dereference)
 	if err != nil {
@@ -364,7 +322,7 @@ func entryInfo(path string, e fs.DirEntry, dereference bool) (os.FileInfo, error
 }
 
 // ReadDir lists one directory. Prefer List for full flag support.
-func ReadDir(dir string, opts Options) ([]Entry, error) {
+func ReadDir(dir string, opts ListOptions) ([]Entry, error) {
 	blocks, err := List([]string{dir}, opts)
 	if err != nil {
 		return nil, err

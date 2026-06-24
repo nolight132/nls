@@ -24,13 +24,13 @@ enabled = true
 special_icons = true
 
 [dir_size]
-# Maximum walk depth per directory when --estimate-depth is not passed.
-# 0 = unlimited depth, bounded only by the timing preset below.
+# Estimate directory sizes by default in interactive table mode.
+enabled = true
+
+# Maximum walk depth per directory for default interactive estimates.
+# 0 = unlimited depth, bounded by the timing preset unless timing = "unlimited".
 default_depth = 0
 
-# Budget preset for bounded directory size estimation.
-# Concrete timings are derived from the name, never edited as raw values.
-#   strict   - aggressive caps, stays snappy on huge trees
-#   balanced - default, enough headroom for typical repos
-#   relaxed  - generous, prefers accurate sizes over latency
+# Budget preset for default interactive estimates: strict, balanced, relaxed, or unlimited.
+# "unlimited" removes time, entry, and directory caps. May take a while for very large directories.
 timing = "balanced"

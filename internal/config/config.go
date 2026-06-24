@@ -5,66 +5,20 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
-	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/nolight132/nls/internal/listing"
 )
-
-// TimingPreset names the trade-off curve for bounded directory size estimates.
-// Concrete budgets are derived in code; the TOML file only ever stores the name.
-type TimingPreset string
-
-const (
-	// TimingStrict caps walks aggressively so interactive listings stay snappy
-	// on huge trees. Sizes are more likely to be marked approximate.
-	TimingStrict TimingPreset = "strict"
-	// TimingBalanced is the default curve: enough headroom for typical repos
-	// without making large directories feel sluggish.
-	TimingBalanced TimingPreset = "balanced"
-	// TimingRelaxed allows much longer walks before truncating, useful when
-	// accurate directory sizes matter more than latency.
-	TimingRelaxed TimingPreset = "relaxed"
-)
-
-// presetLimits returns the concrete budgets for a preset.
-func presetLimits(p TimingPreset) (listing.Limits, error) {
-	switch p {
-	case TimingStrict:
-		return listing.Limits{
-			WalkDuration:      25 * time.Millisecond,
-			ListingDuration:   60 * time.Millisecond,
-			MaxWalkEntries:    200,
-			MaxDirsPerListing: 4,
-		}, nil
-	case TimingBalanced:
-		return listing.DefaultBoundedLimits(), nil
-	case TimingRelaxed:
-		return listing.Limits{
-			WalkDuration:      200 * time.Millisecond,
-			ListingDuration:   500 * time.Millisecond,
-			MaxWalkEntries:    2000,
-			MaxDirsPerListing: 12,
-		}, nil
-	default:
-		return listing.Limits{}, fmt.Errorf("unknown timing preset %q (want strict, balanced, or relaxed)", p)
-	}
-}
 
 type IconsConfig struct {
 	Enabled      bool `toml:"enabled"`
 	SpecialIcons bool `toml:"special_icons"`
 }
 
-// DirSizeConfig controls bounded directory size estimation defaults, used
-// when --estimate-depth is not passed on a TTY.
+// DirSizeConfig controls default interactive directory size estimation.
 type DirSizeConfig struct {
-	// DefaultDepth caps how deep the bounded walk goes per directory.
-	// 0 means unlimited depth, bounded only by the timing preset.
-	DefaultDepth int `toml:"default_depth"`
-	// Timing selects the budget preset. Empty is treated as "balanced".
-	Timing TimingPreset `toml:"timing"`
+	Enabled      bool   `toml:"enabled"`
+	DefaultDepth int    `toml:"default_depth"`
+	Timing       string `toml:"timing"`
 }
 
 // ColumnEntry names a single column in the listing layout.
@@ -113,8 +67,9 @@ func Defaults() Config {
 			SpecialIcons: true,
 		},
 		DirSize: DirSizeConfig{
+			Enabled:      true,
 			DefaultDepth: 0,
-			Timing:       TimingBalanced,
+			Timing:       "balanced",
 		},
 		DefaultColumns: []ColumnEntry{
 			ColumnId,
@@ -125,11 +80,11 @@ func Defaults() Config {
 	}
 }
 
+// User is the process-wide user configuration loaded at startup.
+var User = Defaults()
+
 // Resolve validates the result after defaults have been applied.
 func (c Config) Resolve() (Config, error) {
-	if _, err := presetLimits(c.DirSize.Timing); err != nil {
-		return c, err
-	}
 	for _, col := range c.DefaultColumns {
 		if !isValidColumn(col) {
 			return c, fmt.Errorf("unknown column %q in default_columns", col)
@@ -147,17 +102,6 @@ func isValidColumn(c ColumnEntry) bool {
 		return true
 	}
 	return false
-}
-
-// Limits returns the concrete budgets for the configured timing preset.
-// Falls back to balanced on any error.
-func (c Config) Limits() listing.Limits {
-	limits, err := presetLimits(c.DirSize.Timing)
-	if err != nil {
-		limits, _ = presetLimits(TimingBalanced)
-	}
-	limits.MaxDepth = c.DirSize.DefaultDepth
-	return limits
 }
 
 // Dir returns the nls config directory.
@@ -229,7 +173,12 @@ func Load() (Config, error) {
 	return raw.Resolve()
 }
 
-// NormalizeTiming trims and lowercases a preset name for tolerant matching.
-func NormalizeTiming(s string) TimingPreset {
-	return TimingPreset(strings.ToLower(strings.TrimSpace(s)))
+// LoadUser loads the XDG user config and stores it for process-wide use.
+func LoadUser() (Config, error) {
+	cfg, err := Load()
+	if err != nil {
+		cfg = Defaults()
+	}
+	User = cfg
+	return cfg, err
 }

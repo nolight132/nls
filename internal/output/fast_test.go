@@ -22,13 +22,14 @@ func TestRenderFastUsesTableOnTTY(t *testing.T) {
 	err := RenderFast(
 		&buf,
 		[]string{dir},
-		listing.Options{Sort: listing.SortOptions{Field: listing.SortByName}},
-		Options{
+		listing.ListOptions{Sort: listing.SortOptions{Field: listing.SortByName}},
+		RenderOptions{
 			UseTable: true,
 			IsTTY:    true,
 			Color:    false,
 			IconSet:  icons.SetNone,
 			Now:      time.Now(),
+			Columns:  []string{"id", "name", "type", "size", "modified"},
 		},
 	)
 	if err != nil {
@@ -49,8 +50,8 @@ func TestRenderFastUsesCompatPathWhenNotTable(t *testing.T) {
 	err := RenderFast(
 		&buf,
 		[]string{dir},
-		listing.Options{Sort: listing.SortOptions{Field: listing.SortByName}},
-		Options{Plain: PlainOne},
+		listing.ListOptions{Sort: listing.SortOptions{Field: listing.SortByName}},
+		RenderOptions{Plain: PlainOne},
 	)
 	if err != nil {
 		t.Fatal(err)

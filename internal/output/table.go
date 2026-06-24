@@ -29,7 +29,7 @@ type tableColumn struct {
 }
 
 type renderCtx struct {
-	opts   Options
+	opts   RenderOptions
 	styles *termcolor.Style
 	now    time.Time
 	human  bool
@@ -121,13 +121,8 @@ var columnRegistry = map[string]struct {
 	},
 }
 
-var defaultTableColumns = []string{"id", "name", "type", "size", "modified"}
-
-func buildTableColumns(opts Options, styles *termcolor.Style) []tableColumn {
+func buildTableColumns(opts RenderOptions, styles *termcolor.Style) []tableColumn {
 	names := opts.Columns
-	if len(names) == 0 {
-		names = defaultTableColumns
-	}
 	cols := make([]tableColumn, 0, len(names))
 	for _, name := range names {
 		spec, ok := columnRegistry[name]
@@ -144,7 +139,7 @@ func buildTableColumns(opts Options, styles *termcolor.Style) []tableColumn {
 	return cols
 }
 
-func renderTable(w io.Writer, entries []listing.Entry, opts Options) error {
+func renderTable(w io.Writer, entries []listing.Entry, opts RenderOptions) error {
 	styles := termcolor.New(opts.Color)
 	cols := buildTableColumns(opts, styles)
 	if len(cols) == 0 {
@@ -172,12 +167,12 @@ func renderTable(w io.Writer, entries []listing.Entry, opts Options) error {
 	return err
 }
 
-func tableDisplayName(e listing.Entry, opts Options) string {
+func tableDisplayName(e listing.Entry, opts RenderOptions) string {
 	name := listing.DisplayName(e, opts.Classify, opts.DirSlash, opts.QuoteName, true)
 	return icons.For(e, opts.IconSet) + name
 }
 
-func tableTimeField(t time.Time, opts Options, now time.Time) string {
+func tableTimeField(t time.Time, opts RenderOptions, now time.Time) string {
 	if opts.FullTime {
 		return format.LsTime(t, now, true)
 	}

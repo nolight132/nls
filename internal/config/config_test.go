@@ -6,9 +6,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/nolight132/nls/internal/listing"
 )
 
 func TestDefaults(t *testing.T) {
@@ -19,11 +16,14 @@ func TestDefaults(t *testing.T) {
 	if !d.Icons.SpecialIcons {
 		t.Fatal("special icons should default on")
 	}
-	if d.DirSize.Timing != TimingBalanced {
-		t.Fatalf("default timing = %q, want balanced", d.DirSize.Timing)
+	if !d.DirSize.Enabled {
+		t.Fatal("dir size should default on")
 	}
 	if d.DirSize.DefaultDepth != 0 {
 		t.Fatalf("default depth = %d, want 0", d.DirSize.DefaultDepth)
+	}
+	if d.DirSize.Timing != "balanced" {
+		t.Fatalf("timing = %q, want balanced", d.DirSize.Timing)
 	}
 }
 
@@ -38,17 +38,15 @@ func TestResolveAcceptsDefaults(t *testing.T) {
 	if !resolved.Icons.SpecialIcons {
 		t.Fatal("special icons should default on")
 	}
-	if resolved.DirSize.Timing != TimingBalanced {
-		t.Fatalf("default config timing = %q, want balanced", resolved.DirSize.Timing)
-	}
 }
 
 func TestResolvePreservesExplicitValues(t *testing.T) {
 	c := Config{
 		Icons: IconsConfig{Enabled: true, SpecialIcons: true},
 		DirSize: DirSizeConfig{
-			DefaultDepth: 3,
-			Timing:       TimingRelaxed,
+			Enabled:      false,
+			DefaultDepth: 2,
+			Timing:       "unlimited",
 		},
 	}
 	resolved, err := c.Resolve()
@@ -61,17 +59,14 @@ func TestResolvePreservesExplicitValues(t *testing.T) {
 	if !resolved.Icons.SpecialIcons {
 		t.Fatal("special icons should stay on")
 	}
-	if resolved.DirSize.DefaultDepth != 3 {
-		t.Fatalf("depth = %d, want 3", resolved.DirSize.DefaultDepth)
+	if resolved.DirSize.Enabled {
+		t.Fatal("dir_size.enabled=false should be preserved")
 	}
-	if resolved.DirSize.Timing != TimingRelaxed {
-		t.Fatalf("timing = %q, want relaxed", resolved.DirSize.Timing)
+	if resolved.DirSize.DefaultDepth != 2 {
+		t.Fatalf("depth = %d, want 2", resolved.DirSize.DefaultDepth)
 	}
-}
-
-func TestResolveRejectsUnknownTiming(t *testing.T) {
-	if _, err := (&Config{DirSize: DirSizeConfig{Timing: "turbo"}}).Resolve(); err == nil {
-		t.Fatal("expected error for unknown timing preset")
+	if resolved.DirSize.Timing != "unlimited" {
+		t.Fatalf("timing = %q, want unlimited", resolved.DirSize.Timing)
 	}
 }
 
@@ -99,53 +94,13 @@ func TestResolveAcceptsAllKnownColumns(t *testing.T) {
 	}
 }
 
-func TestLimitsForStrict(t *testing.T) {
-	c := Config{DirSize: DirSizeConfig{Timing: TimingStrict}}
-	limits := c.Limits()
-	if limits.WalkDuration >= 50*time.Millisecond {
-		t.Fatalf("strict walk budget = %v, should be under balanced 50ms", limits.WalkDuration)
-	}
-	if limits.MaxDirsPerListing >= 6 {
-		t.Fatalf("strict dirs cap = %d, should be under balanced 6", limits.MaxDirsPerListing)
-	}
-}
+func TestUserDefaults(t *testing.T) {
+	prev := User
+	User = Defaults()
+	defer func() { User = prev }()
 
-func TestLimitsForRelaxed(t *testing.T) {
-	c := Config{DirSize: DirSizeConfig{Timing: TimingRelaxed}}
-	limits := c.Limits()
-	if limits.WalkDuration <= 50*time.Millisecond {
-		t.Fatalf("relaxed walk budget = %v, should exceed balanced 50ms", limits.WalkDuration)
-	}
-	if limits.MaxWalkEntries <= 400 {
-		t.Fatalf("relaxed entry cap = %d, should exceed balanced 400", limits.MaxWalkEntries)
-	}
-}
-
-func TestLimitsForBalancedMatchesDefaults(t *testing.T) {
-	c := Config{DirSize: DirSizeConfig{Timing: TimingBalanced}}
-	limits := c.Limits()
-	def := listing.DefaultBoundedLimits()
-	if limits.WalkDuration != def.WalkDuration ||
-		limits.ListingDuration != def.ListingDuration ||
-		limits.MaxWalkEntries != def.MaxWalkEntries ||
-		limits.MaxDirsPerListing != def.MaxDirsPerListing {
-		t.Fatalf("balanced limits = %+v, want %+v", limits, def)
-	}
-}
-
-func TestLimitsCarriesDefaultDepth(t *testing.T) {
-	c := Config{DirSize: DirSizeConfig{DefaultDepth: 5, Timing: TimingBalanced}}
-	if got := c.Limits().MaxDepth; got != 5 {
-		t.Fatalf("MaxDepth = %d, want 5", got)
-	}
-}
-
-func TestLimitsFallsBackOnBadPreset(t *testing.T) {
-	c := Config{DirSize: DirSizeConfig{Timing: "nope"}}
-	limits := c.Limits()
-	def := listing.DefaultBoundedLimits()
-	if limits.WalkDuration != def.WalkDuration {
-		t.Fatalf("bad preset should fall back to balanced walk budget, got %v", limits.WalkDuration)
+	if !User.Icons.Enabled {
+		t.Fatal("user config should default icons on")
 	}
 }
 
@@ -286,6 +241,7 @@ func TestLoadReadsAndResolves(t *testing.T) {
 enabled = true
 
 [dir_size]
+enabled = false
 default_depth = 2
 timing = "relaxed"
 `
@@ -300,14 +256,14 @@ timing = "relaxed"
 	if !cfg.Icons.Enabled {
 		t.Fatal("icons should be on")
 	}
+	if cfg.DirSize.Enabled {
+		t.Fatal("dir_size.enabled=false should load")
+	}
 	if cfg.DirSize.DefaultDepth != 2 {
 		t.Fatalf("depth = %d, want 2", cfg.DirSize.DefaultDepth)
 	}
-	if cfg.DirSize.Timing != TimingRelaxed {
+	if cfg.DirSize.Timing != "relaxed" {
 		t.Fatalf("timing = %q, want relaxed", cfg.DirSize.Timing)
-	}
-	if got := cfg.Limits().MaxDepth; got != 2 {
-		t.Fatalf("limits MaxDepth = %d, want 2", got)
 	}
 }
 
@@ -332,9 +288,6 @@ special_icons = false
 	}
 	if cfg.Icons.SpecialIcons {
 		t.Fatal("special_icons = false should override the default true value")
-	}
-	if cfg.DirSize.Timing != TimingBalanced {
-		t.Fatalf("timing = %q, want default balanced", cfg.DirSize.Timing)
 	}
 	if len(cfg.DefaultColumns) != len(Defaults().DefaultColumns) {
 		t.Fatalf("default columns were not preserved")
@@ -380,8 +333,6 @@ func TestLoadRejectsMisplacedDefaultColumns(t *testing.T) {
 enabled = true
 
 [dir_size]
-default_depth = 0
-timing = "balanced"
 default_columns = ["id", "name", "size", "modified"]
 `
 	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte(contents), 0o644); err != nil {
@@ -409,11 +360,5 @@ func TestLoadParseErrorIsReturned(t *testing.T) {
 	}
 	if _, err := Load(); err == nil {
 		t.Fatal("expected parse error")
-	}
-}
-
-func TestNormalizeTiming(t *testing.T) {
-	if got := NormalizeTiming("  Relaxed "); got != TimingRelaxed {
-		t.Fatalf("normalize = %q, want relaxed", got)
 	}
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/nolight132/nls/internal/listing"
 )
 
-func renderPlain(w io.Writer, blocks []listing.Block, opts Options) error {
+func renderPlain(w io.Writer, blocks []listing.Block, opts RenderOptions) error {
 	now := opts.Now
 	if now.IsZero() {
 		now = time.Now()
@@ -44,7 +44,7 @@ func renderPlain(w io.Writer, blocks []listing.Block, opts Options) error {
 	return nil
 }
 
-func renderPlainEntries(w io.Writer, entries []listing.Entry, opts Options, now time.Time) error {
+func renderPlainEntries(w io.Writer, entries []listing.Entry, opts RenderOptions, now time.Time) error {
 	switch opts.Plain {
 	case PlainLong:
 		widths := longWidths(entries, opts)
@@ -89,7 +89,7 @@ type plainColumnWidths struct {
 	blocks int
 }
 
-func plainWidths(entries []listing.Entry, opts Options) plainColumnWidths {
+func plainWidths(entries []listing.Entry, opts RenderOptions) plainColumnWidths {
 	widths := plainColumnWidths{}
 	for _, e := range entries {
 		if opts.ShowInode {
@@ -102,7 +102,7 @@ func plainWidths(entries []listing.Entry, opts Options) plainColumnWidths {
 	return widths
 }
 
-func plainEntry(e listing.Entry, opts Options, widths plainColumnWidths) string {
+func plainEntry(e listing.Entry, opts RenderOptions, widths plainColumnWidths) string {
 	parts := make([]string, 0, 3)
 	if opts.ShowInode {
 		parts = append(parts, fmt.Sprintf("%*d", widths.inode, e.Inode))
@@ -115,7 +115,7 @@ func plainEntry(e listing.Entry, opts Options, widths plainColumnWidths) string 
 	return strings.Join(parts, " ")
 }
 
-func longWidths(entries []listing.Entry, opts Options) longColumnWidths {
+func longWidths(entries []listing.Entry, opts RenderOptions) longColumnWidths {
 	widths := longColumnWidths{links: 1, size: 1}
 	for _, e := range entries {
 		if opts.ShowInode {
@@ -132,7 +132,7 @@ func longWidths(entries []listing.Entry, opts Options) longColumnWidths {
 	return widths
 }
 
-func longLine(e listing.Entry, opts Options, now time.Time, widths longColumnWidths) string {
+func longLine(e listing.Entry, opts RenderOptions, now time.Time, widths longColumnWidths) string {
 	var parts []string
 	if opts.ShowInode {
 		parts = append(parts, fmt.Sprintf("%*d", widths.inode, e.Inode))

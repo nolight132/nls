@@ -25,8 +25,8 @@ const (
 	PlainCommas
 )
 
-// Options control rendered output.
-type Options struct {
+// RenderOptions control rendered output.
+type RenderOptions struct {
 	Human      bool
 	Long       bool
 	JSON       bool
@@ -60,7 +60,7 @@ type JSONRow struct {
 }
 
 // Render writes listing output according to options.
-func Render(w io.Writer, blocks []listing.Block, opts Options) error {
+func Render(w io.Writer, blocks []listing.Block, opts RenderOptions) error {
 	if opts.Now.IsZero() {
 		opts.Now = time.Now()
 	}
@@ -93,7 +93,7 @@ func flattenEntries(blocks []listing.Block) []listing.Entry {
 	return all
 }
 
-func renderJSON(w io.Writer, entries []listing.Entry, opts Options) error {
+func renderJSON(w io.Writer, entries []listing.Entry, opts RenderOptions) error {
 	rows := make([]JSONRow, 0, len(entries))
 	for _, e := range entries {
 		row := JSONRow{

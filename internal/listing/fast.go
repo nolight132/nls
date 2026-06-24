@@ -7,8 +7,8 @@ import (
 )
 
 // NeedsFullMetadata reports whether listing must stat every entry.
-func NeedsFullMetadata(opts Options) bool {
-	if opts.EstimateDepth > EstimateDepthBounded || opts.EstimateDepth == EstimateDepthMax || opts.Recursive || opts.Directory || opts.Dereference {
+func NeedsFullMetadata(opts ListOptions) bool {
+	if opts.EstimateSizes || opts.Precise || opts.Recursive || opts.Directory || opts.Dereference {
 		return true
 	}
 	if opts.All || opts.AlmostAll {
@@ -27,7 +27,7 @@ func NeedsFullMetadata(opts Options) bool {
 	return opts.Classify || opts.DirSlash
 }
 
-func classifyFast(dir string, e fs.DirEntry, opts Options) (Entry, error) {
+func classifyFast(dir string, e fs.DirEntry, opts ListOptions) (Entry, error) {
 	if needsEntryStat(opts) {
 		return classify(dir, e, opts)
 	}
@@ -39,7 +39,7 @@ func classifyFast(dir string, e fs.DirEntry, opts Options) (Entry, error) {
 	return entry, nil
 }
 
-func needsEntryStat(opts Options) bool {
+func needsEntryStat(opts ListOptions) bool {
 	return opts.LongListing || opts.ShowInode || opts.ShowBlocks ||
 		opts.Sort.Field == SortByTime || opts.Sort.Field == SortBySize
 }
@@ -65,7 +65,7 @@ func appendDotEntriesFast(dir string, entries []Entry, fullMeta bool) []Entry {
 }
 
 // FastListNames reads directory names with minimal work (native ls speed).
-func FastListNames(dir string, opts Options) ([]string, error) {
+func FastListNames(dir string, opts ListOptions) ([]string, error) {
 	info, err := os.Lstat(dir)
 	if err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func compareNamesWithComparer(a, b string, sort SortOptions, names nameComparer)
 }
 
 // CanFastList reports whether the ultra-light name-only path is valid.
-func CanFastList(opts Options) bool {
+func CanFastList(opts ListOptions) bool {
 	if NeedsFullMetadata(opts) {
 		return false
 	}
@@ -142,7 +142,7 @@ func CanFastList(opts Options) bool {
 	if opts.Classify || opts.DirSlash || opts.QuoteNames {
 		return false
 	}
-	if opts.LongListing || opts.Commas || opts.ShowInode || opts.ShowBlocks {
+	if opts.LongListing || opts.Commas || opts.ShowInode || opts.ShowBlocks || opts.Precise {
 		return false
 	}
 	if opts.Sort.Field != SortByName && opts.Sort.Field != SortByNone {

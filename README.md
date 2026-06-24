@@ -9,7 +9,7 @@ and looks beautiful in your terminal.
 
 <br>
 
-`nls` is heavily inspired by Nushell's `ls`.
+`nls` is heavily inspired by [Nushell](https://github.com/nushell)'s `ls`.
 
 The original goal was simple: bring Nushell's excellent table-based file listings
 to traditional shells and environments without requiring users to switch to Nushell itself.

@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.2.0
+
+- Replaced `--estimate-depth` with `-P`/`--precise`, which computes exact directory sizes without depth, time, or entry limits.
+- Added `dir_size.enabled` config option to enable directory size estimation by default in interactive table mode, plus an `unlimited` timing preset that drops all caps.
+- Changed defaults to enable icons and drop the `type` column from the default table.
+- Added `examples/config.default.toml` and `examples/config.nushell.toml`, replacing the old `config.example.toml`.
+- Made the index column and table headers bold.
+- README cleanup; added a link to the Nushell integration example.
+
 ## v0.1.8
 
 - Added configurable table columns via `default_columns` in the config file. All 13 columns are available: `id`, `name`, `type`, `size`, `modified`, `accessed`, `changed`, `permissions`, `links`, `owner`, `group`, `inode`, `blocks`. Omit a column to hide it; flags `-i`/`-s`/`-l` still append their columns if not listed.

@@ -9,7 +9,7 @@ import (
 // Style applies ANSI colors.
 type Style struct {
 	enabled bool
-	ls      *lscolor.Styler
+	styler  *lscolor.Styler
 }
 
 // New returns a color style helper.
@@ -19,11 +19,11 @@ func New(enabled bool) *Style {
 	} else {
 		color.NoColor = false
 	}
-	var ls *lscolor.Styler
+	var styler *lscolor.Styler
 	if enabled {
-		ls = lscolor.New()
+		styler = lscolor.New()
 	}
-	return &Style{enabled: enabled, ls: ls}
+	return &Style{enabled: enabled, styler: styler}
 }
 
 // Heading colors the heading text.
@@ -51,10 +51,10 @@ func (s *Style) Index(value string) string {
 
 // Name colors a filename using LS_COLORS-compatible rules.
 func (s *Style) Name(name string, kind listing.Kind) string {
-	if !s.enabled || s.ls == nil {
+	if !s.enabled || s.styler == nil {
 		return name
 	}
-	return s.ls.Colorize(name, kind)
+	return s.styler.Colorize(name, kind)
 }
 
 // Size colors the size column

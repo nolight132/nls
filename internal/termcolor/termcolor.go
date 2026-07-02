@@ -80,3 +80,11 @@ func (s *Style) Error(msg string) string {
 	}
 	return color.New(color.FgRed).Sprint(msg)
 }
+
+// Empty colors empty table messages.
+func (s *Style) Empty(msg string) string {
+	if !s.enabled {
+		return msg
+	}
+	return color.New(color.FgHiBlack).Sprint(msg)
+}

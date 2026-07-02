@@ -25,6 +25,7 @@ type tableColumn struct {
 	header       string
 	align        cellAlign
 	centerHeader bool
+	width        int
 	render       func(e listing.Entry, idx int, ctx renderCtx) string
 }
 
@@ -141,6 +142,11 @@ func buildTableColumns(opts RenderOptions, styles *termcolor.Style) []tableColum
 
 func renderTable(w io.Writer, entries []listing.Entry, opts RenderOptions) error {
 	styles := termcolor.New(opts.Color)
+	if len(entries) == 0 {
+		renderEmptyTable(w, styles)
+		return nil
+	}
+
 	cols := buildTableColumns(opts, styles)
 	if len(cols) == 0 {
 		return nil
@@ -167,6 +173,16 @@ func renderTable(w io.Writer, entries []listing.Entry, opts RenderOptions) error
 	return err
 }
 
+func renderEmptyTable(w io.Writer, styles *termcolor.Style) {
+	var b strings.Builder
+	emptyCols := []tableColumn{{header: "", width: 10}}
+	emptyMessage := styles.Empty("no entries")
+	writeBorderTop(&b, emptyCols)
+	writeDataRow(&b, emptyCols, []string{emptyMessage})
+	writeBorderBottom(&b, emptyCols)
+	fmt.Fprint(w, b.String())
+}
+
 func tableDisplayName(e listing.Entry, opts RenderOptions) string {
 	name := listing.DisplayName(e, opts.Classify, opts.DirSlash, opts.QuoteName, true)
 	return icons.For(e, opts.IconSet) + name
@@ -180,69 +196,66 @@ func tableTimeField(t time.Time, opts RenderOptions, now time.Time) string {
 }
 
 func buildBorderedTable(cols []tableColumn, rows [][]string) string {
-	widths := columnWidths(cols, rows)
+	computeWidths(cols, rows)
 
 	var b strings.Builder
-	writeBorderTop(&b, widths)
-	writeHeaderRow(&b, widths, cols)
-	writeBorderMid(&b, widths)
-	aligns := rowAligns(cols)
+	writeBorderTop(&b, cols)
+	writeHeaderRow(&b, cols)
+	writeBorderMid(&b, cols)
 	for _, row := range rows {
-		writeDataRow(&b, widths, row, aligns)
+		writeDataRow(&b, cols, row)
 	}
-	writeBorderBottom(&b, widths)
+	writeBorderBottom(&b, cols)
 	return b.String()
 }
 
-func columnWidths(cols []tableColumn, rows [][]string) []int {
-	widths := make([]int, len(cols))
-	for i, col := range cols {
-		widths[i] = visibleWidth(col.header)
+func computeWidths(cols []tableColumn, rows [][]string) {
+	for i := range cols {
+		cols[i].width = visibleWidth(cols[i].header)
 	}
 	for _, row := range rows {
 		for i, cell := range row {
-			if w := visibleWidth(cell); w > widths[i] {
-				widths[i] = w
+			if w := visibleWidth(cell); w > cols[i].width {
+				cols[i].width = w
 			}
 		}
 	}
-	return widths
 }
 
-func writeBorderTop(b *strings.Builder, widths []int) {
+func writeBorderTop(b *strings.Builder, cols []tableColumn) {
 	b.WriteString("╭")
-	for i, w := range widths {
+	for i, col := range cols {
 		if i > 0 {
 			b.WriteString("┬")
 		}
-		b.WriteString(strings.Repeat("─", w+2))
+		b.WriteString(strings.Repeat("─", col.width+2))
 	}
 	b.WriteString("╮\n")
 }
 
-func writeBorderMid(b *strings.Builder, widths []int) {
+func writeBorderMid(b *strings.Builder, cols []tableColumn) {
 	b.WriteString("├")
-	for i, w := range widths {
+	for i, col := range cols {
 		if i > 0 {
 			b.WriteString("┼")
 		}
-		b.WriteString(strings.Repeat("─", w+2))
+		b.WriteString(strings.Repeat("─", col.width+2))
 	}
 	b.WriteString("┤\n")
 }
 
-func writeBorderBottom(b *strings.Builder, widths []int) {
+func writeBorderBottom(b *strings.Builder, cols []tableColumn) {
 	b.WriteString("╰")
-	for i, w := range widths {
+	for i, col := range cols {
 		if i > 0 {
 			b.WriteString("┴")
 		}
-		b.WriteString(strings.Repeat("─", w+2))
+		b.WriteString(strings.Repeat("─", col.width+2))
 	}
 	b.WriteString("╯\n")
 }
 
-func writeHeaderRow(b *strings.Builder, widths []int, cols []tableColumn) {
+func writeHeaderRow(b *strings.Builder, cols []tableColumn) {
 	b.WriteRune('│')
 	for i, col := range cols {
 		if i > 0 {
@@ -253,31 +266,23 @@ func writeHeaderRow(b *strings.Builder, widths []int, cols []tableColumn) {
 			align = alignCenter
 		}
 		b.WriteString(" ")
-		b.WriteString(alignCell(col.header, widths[i], align))
+		b.WriteString(alignCell(col.header, col.width, align))
 		b.WriteString(" ")
 	}
 	b.WriteString("│\n")
 }
 
-func writeDataRow(b *strings.Builder, widths []int, row []string, aligns []cellAlign) {
+func writeDataRow(b *strings.Builder, cols []tableColumn, row []string) {
 	b.WriteRune('│')
 	for i, cell := range row {
 		if i > 0 {
 			b.WriteRune('│')
 		}
 		b.WriteString(" ")
-		b.WriteString(alignCell(cell, widths[i], aligns[i]))
+		b.WriteString(alignCell(cell, cols[i].width, cols[i].align))
 		b.WriteString(" ")
 	}
 	b.WriteString("│\n")
-}
-
-func rowAligns(cols []tableColumn) []cellAlign {
-	aligns := make([]cellAlign, len(cols))
-	for i, col := range cols {
-		aligns[i] = col.align
-	}
-	return aligns
 }
 
 func alignCell(cell string, width int, align cellAlign) string {

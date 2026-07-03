@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.3.0
+
+- Added table-mode handling for empty directories, rendering a bordered `no entries` message instead of an empty output.
+
 ## v0.2.0
 
 - Replaced `--estimate-depth` with `-P`/`--precise`, which computes exact directory sizes without depth, time, or entry limits.

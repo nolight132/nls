@@ -29,7 +29,7 @@ func TestRenderFastUsesTableOnTTY(t *testing.T) {
 			Color:    false,
 			IconSet:  icons.SetNone,
 			Now:      time.Now(),
-			Columns:  []string{"id", "name", "type", "size", "modified"},
+			Columns:  defaultColumns(),
 		},
 	)
 	if err != nil {
@@ -37,6 +37,32 @@ func TestRenderFastUsesTableOnTTY(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "╭") {
 		t.Fatalf("expected table output, got %q", buf.String())
+	}
+}
+
+func TestRenderFastEmptyDirUsesTableMessage(t *testing.T) {
+	dir := t.TempDir()
+
+	var buf bytes.Buffer
+	err := RenderFast(
+		&buf,
+		[]string{dir},
+		listing.ListOptions{Sort: listing.SortOptions{Field: listing.SortByName}},
+		RenderOptions{
+			UseTable: true,
+			IsTTY:    true,
+			Color:    false,
+			IconSet:  icons.SetNone,
+			Now:      time.Now(),
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := "╭────────────╮\n│ no entries │\n╰────────────╯\n"
+	if buf.String() != want {
+		t.Fatalf("got %q, want %q", buf.String(), want)
 	}
 }
 

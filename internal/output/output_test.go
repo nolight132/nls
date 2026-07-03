@@ -10,12 +10,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nolight132/nls/internal/config"
 	"github.com/nolight132/nls/internal/icons"
 	"github.com/nolight132/nls/internal/listing"
 )
 
 func blocks(entries ...listing.Entry) []listing.Block {
 	return []listing.Block{{Entries: entries}}
+}
+
+func defaultColumns() []string {
+	cfg := config.Defaults()
+	cols := make([]string, len(cfg.DefaultColumns))
+	for i, col := range cfg.DefaultColumns {
+		cols[i] = string(col)
+	}
+	return cols
 }
 
 func TestRenderPlain(t *testing.T) {
@@ -94,16 +104,34 @@ func TestRenderTable(t *testing.T) {
 		Color:    false,
 		IconSet:  icons.SetNone,
 		Now:      time.Now(),
-		Columns:  []string{"id", "name", "type", "size", "modified"},
+		Columns:  defaultColumns(),
 	}); err != nil {
 		t.Fatal(err)
 	}
 
 	out := buf.String()
-	for _, col := range []string{"╭", "name", "type", "size", "modified", "docs", "dir", "│ 0 │"} {
+	for _, col := range []string{"╭", "name", "size", "modified", "docs", "│ 0 │"} {
 		if !strings.Contains(out, col) {
 			t.Fatalf("missing %q in %q", col, out)
 		}
+	}
+}
+
+func TestRenderTableEmpty(t *testing.T) {
+	var buf bytes.Buffer
+	if err := Render(&buf, blocks(), RenderOptions{
+		UseTable: true,
+		IsTTY:    true,
+		Color:    false,
+		IconSet:  icons.SetNone,
+		Now:      time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	want := "╭────────────╮\n│ no entries │\n╰────────────╯\n"
+	if buf.String() != want {
+		t.Fatalf("got %q, want %q", buf.String(), want)
 	}
 }
 

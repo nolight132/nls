@@ -140,7 +140,9 @@ func LsTime(t time.Time, now time.Time, full bool) string {
 	if full {
 		return t.Format("2006-01-02 15:04:05.000000000 -0700")
 	}
-	if now.Year() != t.Year() {
+	const sixMonths = time.Duration(31556952/2) * time.Second
+	age := now.Sub(t)
+	if age < 0 || age >= sixMonths {
 		return t.Format("Jan _2  2006")
 	}
 	return t.Format("Jan _2 15:04")

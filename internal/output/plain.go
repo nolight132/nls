@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nolight132/nls/internal/format"
 	"github.com/nolight132/nls/internal/listing"
+	"github.com/nolight132/nls/internal/termcolor"
 )
 
 func renderPlain(w io.Writer, blocks []listing.Block, opts RenderOptions) error {
@@ -27,47 +27,27 @@ func renderPlain(w io.Writer, blocks []listing.Block, opts RenderOptions) error 
 				return err
 			}
 		}
-		if block.Directory && (opts.Plain == PlainLong || opts.ShowBlocks) {
-			total := blockTotal(block.Entries)
-			if opts.Human {
-				if _, err := fmt.Fprintf(w, "total %s\n", format.LsTotalSize(total*1024, true)); err != nil {
-					return err
-				}
-			} else if _, err := fmt.Fprintf(w, "total %d\n", total); err != nil {
-				return err
-			}
-		}
-		if err := renderPlainEntries(w, block.Entries, opts, now); err != nil {
+		if err := renderPlainBlock(w, block.Entries, opts, now); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func renderPlainEntries(w io.Writer, entries []listing.Entry, opts RenderOptions, now time.Time) error {
+func renderPlainBlock(w io.Writer, entries []listing.Entry, opts RenderOptions, now time.Time) error {
 	switch opts.Plain {
-	case PlainLong:
-		widths := longWidths(entries, opts)
-		for _, e := range entries {
-			line := longLine(e, opts, now, widths)
-			if _, err := fmt.Fprintln(w, line); err != nil {
-				return err
-			}
-		}
-		return nil
 	case PlainCommas:
-		widths := plainWidths(entries, opts)
 		names := make([]string, 0, len(entries))
 		for _, e := range entries {
-			names = append(names, plainEntry(e, opts, widths))
+			names = append(names, plainName(e, opts))
 		}
 		_, err := fmt.Fprintln(w, strings.Join(names, ", "))
 		return err
+	case PlainLong:
+		return renderPlainColumns(w, entries, opts, now)
 	default:
-		widths := plainWidths(entries, opts)
 		for _, e := range entries {
-			name := plainEntry(e, opts, widths)
-			if _, err := fmt.Fprintln(w, name); err != nil {
+			if _, err := fmt.Fprintln(w, plainName(e, opts)); err != nil {
 				return err
 			}
 		}
@@ -75,94 +55,51 @@ func renderPlainEntries(w io.Writer, entries []listing.Entry, opts RenderOptions
 	}
 }
 
-type longColumnWidths struct {
-	inode  int
-	blocks int
-	links  int
-	owner  int
-	group  int
-	size   int
+func plainName(e listing.Entry, opts RenderOptions) string {
+	return listing.DisplayName(e, opts.Classify, opts.DirSlash, opts.QuoteName, false)
 }
 
-type plainColumnWidths struct {
-	inode  int
-	blocks int
-}
+// renderPlainColumns renders the same columns the table would show, aligned
+// as plain text without borders or headers.
+func renderPlainColumns(w io.Writer, entries []listing.Entry, opts RenderOptions, now time.Time) error {
+	styles := termcolor.New(opts.Color)
+	cols := buildTableColumns(opts, styles)
+	if len(cols) == 0 {
+		return nil
+	}
 
-func plainWidths(entries []listing.Entry, opts RenderOptions) plainColumnWidths {
-	widths := plainColumnWidths{}
-	for _, e := range entries {
-		if opts.ShowInode {
-			widths.inode = max(widths.inode, len(fmt.Sprint(e.Inode)))
+	ctx := renderCtx{opts: opts, styles: styles, now: now, human: opts.Human || opts.IsTTY}
+
+	rows := make([][]string, 0, len(entries))
+	for i, e := range entries {
+		row := make([]string, 0, len(cols))
+		for _, col := range cols {
+			row = append(row, col.render(e, i, ctx))
 		}
-		if opts.ShowBlocks {
-			widths.blocks = max(widths.blocks, len(format.LsBlockSize(e.Blocks, opts.Human)))
+		rows = append(rows, row)
+	}
+
+	widths := make([]int, len(cols))
+	for i := range cols {
+		for _, row := range rows {
+			if w := visibleWidth(row[i]); w > widths[i] {
+				widths[i] = w
+			}
 		}
 	}
-	return widths
-}
 
-func plainEntry(e listing.Entry, opts RenderOptions, widths plainColumnWidths) string {
-	parts := make([]string, 0, 3)
-	if opts.ShowInode {
-		parts = append(parts, fmt.Sprintf("%*d", widths.inode, e.Inode))
-	}
-	if opts.ShowBlocks {
-		blocks := format.LsBlockSize(e.Blocks, opts.Human)
-		parts = append(parts, fmt.Sprintf("%*s", widths.blocks, blocks))
-	}
-	parts = append(parts, listing.DisplayName(e, opts.Classify, opts.DirSlash, opts.QuoteName, false))
-	return strings.Join(parts, " ")
-}
-
-func longWidths(entries []listing.Entry, opts RenderOptions) longColumnWidths {
-	widths := longColumnWidths{links: 1, size: 1}
-	for _, e := range entries {
-		if opts.ShowInode {
-			widths.inode = max(widths.inode, len(fmt.Sprint(e.Inode)))
+	for _, row := range rows {
+		var b strings.Builder
+		for i, cell := range row {
+			if i > 0 {
+				b.WriteString("  ")
+			}
+			b.WriteString(alignCell(cell, widths[i], cols[i].align))
 		}
-		if opts.ShowBlocks {
-			widths.blocks = max(widths.blocks, len(format.LsBlockSize(e.Blocks, opts.Human)))
+		b.WriteByte('\n')
+		if _, err := w.Write([]byte(b.String())); err != nil {
+			return err
 		}
-		widths.links = max(widths.links, len(fmt.Sprint(e.Links)))
-		widths.owner = max(widths.owner, len(e.Owner))
-		widths.group = max(widths.group, len(e.Group))
-		widths.size = max(widths.size, len(format.LsSize(e.Size, opts.Human, e.SizeApprox)))
 	}
-	return widths
-}
-
-func longLine(e listing.Entry, opts RenderOptions, now time.Time, widths longColumnWidths) string {
-	var parts []string
-	if opts.ShowInode {
-		parts = append(parts, fmt.Sprintf("%*d", widths.inode, e.Inode))
-	}
-	if opts.ShowBlocks {
-		blocks := format.LsBlockSize(e.Blocks, opts.Human)
-		parts = append(parts, fmt.Sprintf("%*s", widths.blocks, blocks))
-	}
-
-	parts = append(parts, e.Permissions)
-	parts = append(parts, fmt.Sprintf("%*d", widths.links, e.Links))
-	parts = append(parts, fmt.Sprintf("%-*s", widths.owner, e.Owner))
-	parts = append(parts, fmt.Sprintf("%-*s", widths.group, e.Group))
-
-	size := format.LsSize(e.Size, opts.Human, e.SizeApprox)
-	parts = append(parts, fmt.Sprintf("%*s", widths.size, size))
-
-	when := format.LsTime(listing.EntryTime(e, opts.TimeField), now, opts.FullTime)
-	parts = append(parts, when)
-
-	name := listing.DisplayName(e, opts.Classify, opts.DirSlash, opts.QuoteName, true)
-	parts = append(parts, name)
-
-	return strings.Join(parts, " ")
-}
-
-func blockTotal(entries []listing.Entry) int64 {
-	var total int64
-	for _, e := range entries {
-		total += e.Blocks
-	}
-	return total
+	return nil
 }

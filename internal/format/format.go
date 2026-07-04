@@ -2,7 +2,6 @@ package format
 
 import (
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -16,45 +15,6 @@ func Size(nbytes int64, human bool, approx bool) string {
 		return fmt.Sprintf("%s%d", prefix, nbytes)
 	}
 	return prefix + humanSize(nbytes)
-}
-
-// LsSize formats nbytes for GNU ls-compatible long output.
-func LsSize(nbytes int64, human bool, approx bool) string {
-	prefix := ""
-	if approx {
-		prefix = ">"
-	}
-	if !human {
-		return fmt.Sprintf("%s%d", prefix, nbytes)
-	}
-	return prefix + humanLsSize(nbytes)
-}
-
-// LsTotalSize formats the block total line for GNU ls-compatible output.
-func LsTotalSize(nbytes int64, human bool) string {
-	if !human {
-		return fmt.Sprintf("%d", nbytes)
-	}
-	return humanLsTotalSize(nbytes)
-}
-
-// LsBlockSize formats 1K block counts for GNU ls -s-compatible columns.
-func LsBlockSize(blocks int64, human bool) string {
-	if !human {
-		return fmt.Sprintf("%d", blocks)
-	}
-	return humanLsBlockSize(blocks * 1024)
-}
-
-// IsRelativeModified reports whether s is a relative mtime label from Modified().
-func IsRelativeModified(s string) bool {
-	switch s {
-	case "-":
-		return false
-	case "just now", "a day ago":
-		return true
-	}
-	return strings.HasSuffix(s, " ago")
 }
 
 func humanSize(nbytes int64) string {
@@ -72,80 +32,6 @@ func humanSize(nbytes int64) string {
 	suffixes := []string{"KiB", "MiB", "GiB", "TiB", "PiB", "EiB"}
 	suffix := suffixes[exp]
 	return fmt.Sprintf("%.1f %s", float64(nbytes)/float64(div), suffix)
-}
-
-func humanLsTotalSize(nbytes int64) string {
-	const unit = 1024
-	if nbytes < unit {
-		return fmt.Sprintf("%d", nbytes)
-	}
-
-	div := int64(unit)
-	exp := 0
-	for n := nbytes / unit; n >= unit && exp < 5; n /= unit {
-		div *= unit
-		exp++
-	}
-
-	suffixes := []string{"K", "M", "G", "T", "P", "E"}
-	value := float64(nbytes) / float64(div)
-	if value >= 10 || value == float64(int64(value)) {
-		return fmt.Sprintf("%.0f%s", value, suffixes[exp])
-	}
-	return fmt.Sprintf("%.1f%s", value, suffixes[exp])
-}
-
-func humanLsSize(nbytes int64) string {
-	const unit = 1024
-	if nbytes < unit {
-		return fmt.Sprintf("%d", nbytes)
-	}
-
-	div := int64(unit)
-	exp := 0
-	for n := nbytes / unit; n >= unit && exp < 5; n /= unit {
-		div *= unit
-		exp++
-	}
-
-	suffixes := []string{"K", "M", "G", "T", "P", "E"}
-	return fmt.Sprintf("%.1f%s", float64(nbytes)/float64(div), suffixes[exp])
-}
-
-func humanLsBlockSize(nbytes int64) string {
-	const unit = 1024
-	if nbytes == 0 {
-		return "0"
-	}
-	if nbytes < unit {
-		return fmt.Sprintf("%d", nbytes)
-	}
-
-	div := int64(unit)
-	exp := 0
-	for n := nbytes / unit; n >= unit && exp < 5; n /= unit {
-		div *= unit
-		exp++
-	}
-
-	suffixes := []string{"K", "M", "G", "T", "P", "E"}
-	return fmt.Sprintf("%.1f%s", float64(nbytes)/float64(div), suffixes[exp])
-}
-
-// LsTime formats mtime like GNU ls -l.
-func LsTime(t time.Time, now time.Time, full bool) string {
-	if t.IsZero() {
-		return "-"
-	}
-	if full {
-		return t.Format("2006-01-02 15:04:05.000000000 -0700")
-	}
-	const sixMonths = time.Duration(31556952/2) * time.Second
-	age := now.Sub(t)
-	if age < 0 || age >= sixMonths {
-		return t.Format("Jan _2  2006")
-	}
-	return t.Format("Jan _2 15:04")
 }
 
 // Modified formats mtime for display.

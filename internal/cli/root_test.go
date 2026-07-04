@@ -73,12 +73,9 @@ func TestUseTableRejectsAlternateOutputShapes(t *testing.T) {
 	}
 }
 
-func TestJSONDisablesFastPath(t *testing.T) {
+func TestJSONResolvesAbsAndStaysRich(t *testing.T) {
 	setUserForTest(t, config.Defaults())
 	opts := buildListOptions(&Config{JSON: true}, false)
-	if opts.FastPath {
-		t.Fatal("JSON output needs full metadata")
-	}
 	if !opts.ResolveAbs {
 		t.Fatal("JSON output should resolve absolute paths")
 	}
@@ -119,9 +116,6 @@ func TestPreciseEnablesExactUnlimitedEstimates(t *testing.T) {
 	}
 	if !opts.Precise {
 		t.Fatal("precise flag should pass through to listing")
-	}
-	if opts.FastPath {
-		t.Fatal("precise needs full metadata")
 	}
 }
 

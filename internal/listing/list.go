@@ -20,7 +20,6 @@ type ListOptions struct {
 	Dereference   bool
 	Directory     bool
 	Recursive     bool
-	FastPath      bool
 	ResolveAbs    bool
 	LongListing   bool
 	ShowInode     bool
@@ -178,18 +177,11 @@ func readDirAt(dir string, opts ListOptions) ([]Entry, error) {
 	}
 
 	out := make([]Entry, 0, len(entries))
-	fullMeta := !opts.FastPath
 	for _, e := range entries {
 		if !includeName(e.Name(), opts) {
 			continue
 		}
-		var entry Entry
-		var err error
-		if opts.FastPath {
-			entry, err = classifyFast(dir, e, opts)
-		} else {
-			entry, err = classify(dir, e, opts)
-		}
+		entry, err := classify(dir, e, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -197,7 +189,7 @@ func readDirAt(dir string, opts ListOptions) ([]Entry, error) {
 	}
 
 	if opts.All {
-		out = appendDotEntriesFast(dir, out, fullMeta)
+		out = appendDotEntries(dir, out)
 	}
 
 	if opts.EstimateSizes {
@@ -331,4 +323,14 @@ func ReadDir(dir string, opts ListOptions) ([]Entry, error) {
 		return nil, nil
 	}
 	return blocks[0].Entries, nil
+}
+
+// ResolvePath cleans a path; Abs is only used for interactive display.
+func ResolvePath(raw string, resolveAbs bool) string {
+	if resolveAbs {
+		if abs, err := filepath.Abs(raw); err == nil {
+			return abs
+		}
+	}
+	return filepath.Clean(raw)
 }

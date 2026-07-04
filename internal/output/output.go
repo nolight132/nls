@@ -38,7 +38,6 @@ type RenderOptions struct {
 	Classify   bool
 	DirSlash   bool
 	QuoteName  bool
-	FullTime   bool
 	ShowInode  bool
 	ShowBlocks bool
 	TimeField  listing.TimeField

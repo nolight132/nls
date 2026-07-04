@@ -69,19 +69,19 @@ var columnRegistry = map[string]struct {
 	"modified": {
 		header: "modified", align: alignLeft, centerHeader: true,
 		render: func(e listing.Entry, _ int, ctx renderCtx) string {
-			return ctx.styles.Modified(tableTimeField(e.Modified, ctx.opts, ctx.now))
+			return ctx.styles.Modified(format.Modified(e.Modified, ctx.now))
 		},
 	},
 	"accessed": {
 		header: "accessed", align: alignLeft, centerHeader: true,
 		render: func(e listing.Entry, _ int, ctx renderCtx) string {
-			return ctx.styles.Modified(tableTimeField(e.Accessed, ctx.opts, ctx.now))
+			return ctx.styles.Modified(format.Modified(e.Accessed, ctx.now))
 		},
 	},
 	"changed": {
 		header: "changed", align: alignLeft, centerHeader: true,
 		render: func(e listing.Entry, _ int, ctx renderCtx) string {
-			return ctx.styles.Modified(tableTimeField(e.Changed, ctx.opts, ctx.now))
+			return ctx.styles.Modified(format.Modified(e.Changed, ctx.now))
 		},
 	},
 	"permissions": {
@@ -186,13 +186,6 @@ func renderEmptyTable(w io.Writer, styles *termcolor.Style) {
 func tableDisplayName(e listing.Entry, opts RenderOptions) string {
 	name := listing.DisplayName(e, opts.Classify, opts.DirSlash, opts.QuoteName, true)
 	return icons.For(e, opts.IconSet) + name
-}
-
-func tableTimeField(t time.Time, opts RenderOptions, now time.Time) string {
-	if opts.FullTime {
-		return format.LsTime(t, now, true)
-	}
-	return format.Modified(t, now)
 }
 
 func buildBorderedTable(cols []tableColumn, rows [][]string) string {

@@ -50,10 +50,11 @@ func TestRenderPlainLong(t *testing.T) {
 	}}
 	var buf bytes.Buffer
 	if err := Render(&buf, blocks(entries...), RenderOptions{
-		IsTTY: false,
-		Plain: PlainLong,
-		Human: true,
-		Now:   now,
+		IsTTY:   false,
+		Plain:   PlainLong,
+		Human:   true,
+		Now:     now,
+		Columns: []string{"permissions", "size", "modified", "name"},
 	}); err != nil {
 		t.Fatal(err)
 	}

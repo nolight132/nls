@@ -36,7 +36,6 @@ type Config struct {
 	Dereference bool
 	Commas      bool
 	QuoteName   bool
-	FullTime    bool
 	DirsFirst   bool
 	Inode       bool
 	Blocks      bool
@@ -64,12 +63,8 @@ func Root() *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg.Paths = args
-			if cfg.FullTime {
-				cfg.Long = true
-			}
 			if unsortedF {
 				cfg.Unsorted = true
-				cfg.All = true
 			}
 			return run(cfg)
 		},
@@ -95,7 +90,6 @@ func Root() *cobra.Command {
 	cmd.Flags().BoolVarP(&cfg.Dereference, "dereference", "L", false, "follow symlinks")
 	cmd.Flags().BoolVarP(&cfg.Commas, "comma", "m", false, "fill width with a comma separated list")
 	cmd.Flags().BoolVarP(&cfg.QuoteName, "quote-name", "Q", false, "enclose entry names in double quotes")
-	cmd.Flags().BoolVar(&cfg.FullTime, "full-time", false, "print full timestamps")
 	cmd.Flags().BoolVar(&cfg.DirsFirst, "group-directories-first", false, "group directories before files")
 	cmd.Flags().BoolVarP(&cfg.Inode, "inode", "i", false, "show inode numbers")
 	cmd.Flags().BoolVarP(&cfg.Blocks, "size-blocks", "s", false, "show allocated block counts")
@@ -116,7 +110,7 @@ func configureHelp(cmd *cobra.Command) {
 		"all", "almost-all", "long", "human-readable", "recursive", "reverse",
 		"time", "access-time", "ctime", "size", "extension", "unsorted", "fast",
 		"directory", "classify", "slash", "ignore-backups", "dereference",
-		"quote-name", "full-time", "group-directories-first", "inode", "size-blocks",
+		"quote-name", "group-directories-first", "inode", "size-blocks",
 	)
 	markGroup(cmd, "Plain-output layout flags", "one", "comma")
 	markGroup(cmd, "nls presentation flags", "json", "precise", "no-icons", "no-color", "help", "version")
@@ -196,22 +190,6 @@ func buildListOptions(cfg *Config, interactive bool) listing.ListOptions {
 	} else if estimateSizes {
 		estimateDepth = listing.EstimateDepthBounded
 	}
-	needsFull := listing.NeedsFullMetadata(listing.ListOptions{
-		All:           cfg.All,
-		AlmostAll:     cfg.AlmostAll,
-		Dereference:   cfg.Dereference,
-		Directory:     cfg.Directory,
-		Recursive:     cfg.Recursive,
-		EstimateSizes: estimateSizes,
-		EstimateDepth: estimateDepth,
-		Precise:       cfg.Precise,
-		LongListing:   cfg.Long,
-		ShowInode:     cfg.Inode,
-		ShowBlocks:    cfg.Blocks,
-		Classify:      cfg.Classify,
-		DirSlash:      cfg.DirSlash,
-		Sort:          buildSort(cfg),
-	})
 
 	return listing.ListOptions{
 		All:           cfg.All,
@@ -223,7 +201,6 @@ func buildListOptions(cfg *Config, interactive bool) listing.ListOptions {
 		EstimateSizes: estimateSizes,
 		EstimateDepth: estimateDepth,
 		Precise:       cfg.Precise,
-		FastPath:      !interactive && !cfg.JSON && !needsFull,
 		ResolveAbs:    interactive || cfg.JSON,
 		LongListing:   cfg.Long,
 		ShowInode:     cfg.Inode,
@@ -275,7 +252,6 @@ func run(cfg *Config) error {
 		Classify:   cfg.Classify,
 		DirSlash:   cfg.DirSlash,
 		QuoteName:  cfg.QuoteName,
-		FullTime:   cfg.FullTime,
 		ShowInode:  cfg.Inode,
 		ShowBlocks: cfg.Blocks,
 		TimeField:  timeField(cfg),
@@ -283,7 +259,11 @@ func run(cfg *Config) error {
 		Columns:    buildColumns(cfg),
 	}
 
-	return output.RenderFast(os.Stdout, expanded, listOpts, outOpts)
+	blocks, err := listing.List(expanded, listOpts)
+	if err != nil {
+		return err
+	}
+	return output.Render(os.Stdout, blocks, outOpts)
 }
 
 func loadUserConfig(w io.Writer) config.Config {
@@ -350,16 +330,14 @@ func timeField(cfg *Config) listing.TimeField {
 }
 
 func plainMode(cfg *Config, isTTY bool) output.PlainMode {
-	if cfg.Commas {
+	switch {
+	case cfg.Commas:
 		return output.PlainCommas
-	}
-	if cfg.Long {
+	case cfg.Long:
 		return output.PlainLong
-	}
-	if cfg.One || !isTTY {
+	default:
 		return output.PlainOne
 	}
-	return output.PlainOne
 }
 
 // useTable is true on a TTY unless the user asks for a different output shape.

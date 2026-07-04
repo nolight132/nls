@@ -5,25 +5,41 @@ import (
 	"testing"
 )
 
-func TestSortNamesUsesCLocaleByteOrder(t *testing.T) {
+func entriesFromNames(names ...string) []Entry {
+	out := make([]Entry, len(names))
+	for i, n := range names {
+		out[i] = Entry{Name: n}
+	}
+	return out
+}
+
+func namesOf(entries []Entry) []string {
+	out := make([]string, len(entries))
+	for i, e := range entries {
+		out[i] = e.Name
+	}
+	return out
+}
+
+func TestSortEntriesUsesCLocaleByteOrder(t *testing.T) {
 	t.Setenv("LC_ALL", "C")
-	names := []string{"CHANGELOG.md", "LICENSE", "README.md", "cmd", "go.mod", "go.sum", "internal"}
-	sortNames(names, SortOptions{Field: SortByName})
+	entries := entriesFromNames("CHANGELOG.md", "LICENSE", "README.md", "cmd", "go.mod", "go.sum", "internal")
+	sortEntries(entries, SortOptions{Field: SortByName})
 
 	want := []string{"CHANGELOG.md", "LICENSE", "README.md", "cmd", "go.mod", "go.sum", "internal"}
-	if !reflect.DeepEqual(names, want) {
-		t.Fatalf("got %v, want %v", names, want)
+	if got := namesOf(entries); !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
 	}
 }
 
-func TestSortNamesUsesLocaleCollation(t *testing.T) {
+func TestSortEntriesUsesLocaleCollation(t *testing.T) {
 	t.Setenv("LC_ALL", "en_US.UTF-8")
-	names := []string{"CHANGELOG.md", "LICENSE", "README.md", "cmd", "go.mod", "go.sum", "internal", ".hidden"}
-	sortNames(names, SortOptions{Field: SortByName})
+	entries := entriesFromNames("CHANGELOG.md", "LICENSE", "README.md", "cmd", "go.mod", "go.sum", "internal", ".hidden")
+	sortEntries(entries, SortOptions{Field: SortByName})
 
 	want := []string{"CHANGELOG.md", "cmd", "go.mod", "go.sum", ".hidden", "internal", "LICENSE", "README.md"}
-	if !reflect.DeepEqual(names, want) {
-		t.Fatalf("got %v, want %v", names, want)
+	if got := namesOf(entries); !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
 	}
 }
 

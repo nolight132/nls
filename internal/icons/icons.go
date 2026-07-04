@@ -23,7 +23,7 @@ func Resolve(noIcons bool, configEnabled bool, specialIcons bool) Set {
 	if noIcons {
 		return SetNone
 	}
-	if !configEnabled && !envIconsOn() {
+	if !configEnabled {
 		return SetNone
 	}
 	if !nerdFontAvailable() {
@@ -35,25 +35,7 @@ func Resolve(noIcons bool, configEnabled bool, specialIcons bool) Set {
 	return SetNerd
 }
 
-func envIconsOn() bool {
-	switch strings.ToLower(os.Getenv("NLS_ICONS")) {
-	case "1", "true", "yes", "on", "nerd":
-		return true
-	default:
-		return false
-	}
-}
-
 func nerdFontAvailable() bool {
-	for _, key := range []string{"NERD_FONT", "NLS_NERD_FONT"} {
-		switch strings.ToLower(os.Getenv(key)) {
-		case "1", "true", "yes", "on":
-			return true
-		case "0", "false", "no", "off":
-			return false
-		}
-	}
-
 	term := strings.ToLower(os.Getenv("TERM"))
 	if strings.Contains(term, "alacritty") ||
 		strings.Contains(term, "kitty") ||

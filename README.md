@@ -17,11 +17,10 @@ to traditional shells and environments without requiring users to switch to Nush
 </div>
 
 <div align="center">
-    <img width="833" height="601" alt="image" src="https://github.com/user-attachments/assets/d81304bb-bda4-4419-8729-c01c39430e97" />
+    <img width="827" height="591" alt="image" src="https://github.com/user-attachments/assets/b620e799-a1f8-4110-9250-d6f26ea2df74" />
 </div>
 <div align="center">
     <sub>
-      <code>ls</code> is an alias for <code>nls</code> in this screenshot.
       A more Nushell-like configuration is available in
       <a href="./examples/config.nushell.toml"><code>config.nushell.toml</code></a>.
     </sub>
@@ -58,12 +57,12 @@ It works in bash, zsh, fish, Nushell, PowerShell, Windows Terminal, Linux termin
 - Nushell-style tables for interactive terminal use
 - Directory sizes shown by default
 - Fast non-TTY behavior for pipes, redirects, and scripts
-- GNU `ls`-like behavior for common workflows
-- Helpful suggestions when flags or arguments are mistyped
-- Optional icons with `NLS_ICONS=1`
+- `ls`-like behavior for common workflows
+- Helpful suggestions when paths are mistyped
+- Optional icons (enabled by default)
 - Colors for files, directories, symlinks, executables, sizes, and timestamps
 - JSON output for structured usage
-- Works on Linux, macOS, and Windows
+- Works on Linux, macOS, and Windows, and (probably™) everywhere else you would want to run it
 
 ---
 
@@ -151,7 +150,7 @@ $XDG_CONFIG_HOME/nls/config.toml        (Linux/macOS, XDG set)
 ```
 
 See [`examples/config.default.toml`](https://github.com/nolight132/nls/blob/main/examples/config.default.toml) for a commented template.
-Precedence, highest to lowest: command-line flags, environment variables (`NLS_ICONS`, `NERD_FONT`, ...), config file, built-in defaults.
+Precedence, highest to lowest: command-line flags, config file, built-in defaults.
 
 ---
 
@@ -201,15 +200,14 @@ Common flags:
 
 ## Icons
 
-Icons are disabled by default.
+Icons are enabled by default.
 
-Enable them with:
+If you want, you can disable them with:
 
-```bash
-NLS_ICONS=1 nls
+```toml
+[icons]
+enabled = false
 ```
-
-Future versions will include broader file-type icon coverage.
 
 ---
 
@@ -227,33 +225,6 @@ Default highlights:
 
 ---
 
-## Roadmap
-
-Planned features:
-
-- ~~XDG config file support~~
-- custom color overrides
-- custom themes
-- alternative layouts
-- more table styles
-- wider file-type icon support
-- better Windows-specific polish
-- more GNU `ls` compatibility where it makes sense
-- optional Git status column
-- optional tree layout
-- more structured output modes
-
-Possible future tools:
-
-- `nfind`
-- `ndu`
-- `nps`
-- `nstat`
-
-The goal is a small suite of modern coreutils-style tools with beautiful interactive output and sane script behavior.
-
----
-
 ## Development
 
 ```bash
@@ -267,6 +238,19 @@ Build:
 ```bash
 go build -o nls ./cmd/nls
 ```
+
+---
+
+## Project's future
+
+Possible future tools:
+
+- `nfind`
+- `ndu`
+- `nps`
+- `nstat`
+
+The goal is a small suite of modern coreutils-style tools with beautiful interactive output and sane script behavior.
 
 ---
 

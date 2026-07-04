@@ -20,7 +20,6 @@ type ListOptions struct {
 	Dereference   bool
 	Directory     bool
 	Recursive     bool
-	ResolveAbs    bool
 	LongListing   bool
 	ShowInode     bool
 	ShowBlocks    bool
@@ -35,11 +34,10 @@ type ListOptions struct {
 }
 
 type operand struct {
-	raw     string
-	path    string
-	display string
-	info    os.FileInfo
-	entry   Entry
+	raw   string
+	path  string
+	info  os.FileInfo
+	entry Entry
 }
 
 // List resolves paths into output blocks.
@@ -50,18 +48,17 @@ func List(paths []string, opts ListOptions) ([]Block, error) {
 
 	operands := make([]operand, 0, len(paths))
 	for _, raw := range paths {
-		path := ResolvePath(raw, opts.ResolveAbs)
-		displayPath := filepath.Clean(raw)
+		path := filepath.Clean(raw)
 
 		info, err := statPath(path, opts.Dereference)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", raw, err)
 		}
-		entry, err := entryFromInfo(path, displayPath, info, opts)
+		entry, err := entryFromInfo(path, path, info, opts)
 		if err != nil {
 			return nil, err
 		}
-		operands = append(operands, operand{raw: raw, path: path, display: displayPath, info: info, entry: entry})
+		operands = append(operands, operand{raw: raw, path: path, info: info, entry: entry})
 	}
 
 	if len(operands) == 1 {
@@ -323,14 +320,4 @@ func ReadDir(dir string, opts ListOptions) ([]Entry, error) {
 		return nil, nil
 	}
 	return blocks[0].Entries, nil
-}
-
-// ResolvePath cleans a path; Abs is only used for interactive display.
-func ResolvePath(raw string, resolveAbs bool) string {
-	if resolveAbs {
-		if abs, err := filepath.Abs(raw); err == nil {
-			return abs
-		}
-	}
-	return filepath.Clean(raw)
 }

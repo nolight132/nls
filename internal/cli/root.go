@@ -201,7 +201,6 @@ func buildListOptions(cfg *Config, interactive bool) listing.ListOptions {
 		EstimateSizes: estimateSizes,
 		EstimateDepth: estimateDepth,
 		Precise:       cfg.Precise,
-		ResolveAbs:    interactive || cfg.JSON,
 		LongListing:   cfg.Long,
 		ShowInode:     cfg.Inode,
 		ShowBlocks:    cfg.Blocks,

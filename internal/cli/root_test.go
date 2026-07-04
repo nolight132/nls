@@ -73,14 +73,6 @@ func TestUseTableRejectsAlternateOutputShapes(t *testing.T) {
 	}
 }
 
-func TestJSONResolvesAbsAndStaysRich(t *testing.T) {
-	setUserForTest(t, config.Defaults())
-	opts := buildListOptions(&Config{JSON: true}, false)
-	if !opts.ResolveAbs {
-		t.Fatal("JSON output should resolve absolute paths")
-	}
-}
-
 func TestInteractiveUsesBoundedEstimateWhenConfigEnabled(t *testing.T) {
 	setUserForTest(t, config.Defaults())
 	opts := buildListOptions(&Config{}, true)

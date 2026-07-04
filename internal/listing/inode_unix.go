@@ -3,11 +3,11 @@
 package listing
 
 import (
-	"os"
+	"io/fs"
 	"syscall"
 )
 
-func inodeOf(info os.FileInfo) uint64 {
+func inodeOf(info fs.FileInfo) uint64 {
 	st, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
 		return 0

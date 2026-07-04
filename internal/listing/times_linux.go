@@ -3,12 +3,12 @@
 package listing
 
 import (
-	"os"
+	"io/fs"
 	"syscall"
 	"time"
 )
 
-func fileTimes(info os.FileInfo) (accessed, changed time.Time) {
+func fileTimes(info fs.FileInfo) (accessed, changed time.Time) {
 	accessed = info.ModTime()
 	changed = info.ModTime()
 	st, ok := info.Sys().(*syscall.Stat_t)

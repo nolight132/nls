@@ -36,7 +36,7 @@ type ListOptions struct {
 type operand struct {
 	raw   string
 	path  string
-	info  os.FileInfo
+	info  fs.FileInfo
 	entry Entry
 }
 
@@ -243,14 +243,14 @@ func appendDotEntries(dir string, entries []Entry) []Entry {
 	return append([]Entry{dot, dotdot}, entries...)
 }
 
-func statPath(path string, dereference bool) (os.FileInfo, error) {
+func statPath(path string, dereference bool) (fs.FileInfo, error) {
 	if dereference {
 		return os.Stat(path)
 	}
 	return os.Lstat(path)
 }
 
-func entryFromInfo(fullPath, name string, info os.FileInfo, opts ListOptions) (Entry, error) {
+func entryFromInfo(fullPath, name string, info fs.FileInfo, opts ListOptions) (Entry, error) {
 	accessed, changed := fileTimes(info)
 	entry := Entry{
 		Name:        name,
@@ -303,7 +303,7 @@ func classify(dir string, e fs.DirEntry, opts ListOptions) (Entry, error) {
 	return entry, nil
 }
 
-func entryInfo(path string, e fs.DirEntry, dereference bool) (os.FileInfo, error) {
+func entryInfo(path string, e fs.DirEntry, dereference bool) (fs.FileInfo, error) {
 	if dereference {
 		return os.Stat(path)
 	}

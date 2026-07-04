@@ -2,8 +2,8 @@
 
 package listing
 
-import "os"
+import "io/fs"
 
-func sparseFixtureDiskUsage(info os.FileInfo) (int64, bool) {
+func sparseFixtureDiskUsage(_ fs.FileInfo) (int64, bool) {
 	return 0, false
 }

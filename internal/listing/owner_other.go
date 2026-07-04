@@ -2,8 +2,8 @@
 
 package listing
 
-import "os"
+import "io/fs"
 
-func ownerGroupOf(info os.FileInfo) (string, string) {
+func ownerGroupOf(_ fs.FileInfo) (string, string) {
 	return "-", "-"
 }

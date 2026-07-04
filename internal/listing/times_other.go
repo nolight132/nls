@@ -3,11 +3,11 @@
 package listing
 
 import (
-	"os"
+	"io/fs"
 	"time"
 )
 
-func fileTimes(info os.FileInfo) (accessed, changed time.Time) {
+func fileTimes(info fs.FileInfo) (accessed, changed time.Time) {
 	t := info.ModTime()
 	return t, t
 }

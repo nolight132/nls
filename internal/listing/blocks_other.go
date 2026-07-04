@@ -2,16 +2,16 @@
 
 package listing
 
-import "os"
+import "io/fs"
 
-func blocksOf(info os.FileInfo) int64 {
+func blocksOf(info fs.FileInfo) int64 {
 	return fallbackBlocks(info)
 }
 
-func diskUsageOf(info os.FileInfo) int64 {
+func diskUsageOf(info fs.FileInfo) int64 {
 	return fallbackDiskUsage(info)
 }
 
-func linksOf(info os.FileInfo) uint64 {
+func linksOf(_ fs.FileInfo) uint64 {
 	return 1
 }

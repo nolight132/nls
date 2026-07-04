@@ -3,13 +3,13 @@
 package listing
 
 import (
-	"os"
+	"io/fs"
 	"os/user"
 	"strconv"
 	"syscall"
 )
 
-func ownerGroupOf(info os.FileInfo) (string, string) {
+func ownerGroupOf(info fs.FileInfo) (string, string) {
 	st, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
 		return "-", "-"

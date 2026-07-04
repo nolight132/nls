@@ -2,8 +2,8 @@
 
 package listing
 
-import "os"
+import "io/fs"
 
-func inodeOf(info os.FileInfo) uint64 {
+func inodeOf(_ fs.FileInfo) uint64 {
 	return 0
 }

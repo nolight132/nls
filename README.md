@@ -84,8 +84,6 @@ Prebuilt binary:
 yay -S nls-bin
 ```
 
-Both packages are maintained by the author.
-
 ### Homebrew
 
 ```bash

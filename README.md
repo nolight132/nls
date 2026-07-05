@@ -68,6 +68,8 @@ It works in bash, zsh, fish, Nushell, PowerShell, Windows Terminal, Linux termin
 
 ## Install
 
+Please note that in order to use icons, you need to have a [Nerd Font](https://www.nerdfonts.com/) installed and configured in your terminal.
+
 ### Arch Linux (AUR)
 
 Source package:

@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.4.0
+
+- Removed the GNU `ls` compatibility layer. Plain output is now simpler and follows `nls` behavior for common listing workflows instead of trying to match GNU-specific edge cases.
+- Changed plain `-l`/`--long` output to render the configured `nls` columns as aligned plain text without table borders or headers.
+- Removed `--full-time`; timestamp output now uses the normal `nls` modified/accessed/changed time formatting.
+- Changed `-f`/`--fast` to mean unsorted output only; it no longer implies `-a`/`--all`.
+- Removed environment-based icon configuration. `NLS_ICONS`, `NERD_FONT`, and `NLS_NERD_FONT` no longer affect icon selection; use the config file or `--no-icons` instead.
+- Fixed CJK and other wide-character table alignment by measuring terminal display width instead of rune count.
+- Fixed `LS_COLORS` extension and suffix matching to be case-sensitive.
+- Fixed ANSI width calculations so non-SGR CSI sequences and OSC sequences do not break table alignment.
+- Fixed `--no-color`/color-disabled rendering so one `nls` render no longer mutates global color state for later output.
+
 ## v0.3.0
 
 - Added table-mode handling for empty directories, rendering a bordered `no entries` message instead of an empty output.

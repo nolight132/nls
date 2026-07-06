@@ -58,3 +58,37 @@ func TestTableCJKBorderAlignment(t *testing.T) {
 		t.Errorf("CJK right edge at display col %d, ASCII at %d; borders misaligned", cjkRight, asciiRight)
 	}
 }
+
+func TestStripANSINonSGR(t *testing.T) {
+	sgr := "\x1b[31mred\x1b[0m"
+	if got := stripANSI(sgr); got != "red" {
+		t.Errorf("SGR: got %q, want %q", got, "red")
+	}
+
+	nonSGR := "\x1b[2Jclear"
+	if got := stripANSI(nonSGR); got != "clear" {
+		t.Errorf("non-SGR CSI (\\x1b[2J): got %q, want %q", got, "clear")
+	}
+
+	cursor := "before\x1b[10;20Hafter"
+	if got := stripANSI(cursor); got != "beforeafter" {
+		t.Errorf("cursor CSI: got %q, want %q", got, "beforeafter")
+	}
+
+	priv := "\x1b[?25lhidden\x1b[?25hshown"
+	if got := stripANSI(priv); got != "hiddenshown" {
+		t.Errorf("private CSI: got %q, want %q", got, "hiddenshown")
+	}
+
+	mixed := "\x1b[31m\x1b[2Jtext\x1b[0m"
+	if got := stripANSI(mixed); got != "text" {
+		t.Errorf("mixed: got %q, want %q", got, "text")
+	}
+}
+
+func TestVisibleWidthWithNonSGR(t *testing.T) {
+	got := visibleWidth("\x1b[2J\x1b[31mhello\x1b[0m")
+	if got != 5 {
+		t.Errorf("got %d, want 5", got)
+	}
+}

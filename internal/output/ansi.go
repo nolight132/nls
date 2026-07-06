@@ -2,11 +2,12 @@ package output
 
 import (
 	"strings"
-	"unicode/utf8"
+
+	"github.com/mattn/go-runewidth"
 )
 
 func visibleWidth(s string) int {
-	return utf8.RuneCountInString(stripANSI(s))
+	return runewidth.StringWidth(stripANSI(s))
 }
 
 func stripANSI(s string) string {

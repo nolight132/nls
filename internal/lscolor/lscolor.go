@@ -83,15 +83,10 @@ func typeCode(kind listing.Kind) string {
 
 func matchSelector(selector, name string) bool {
 	if !strings.Contains(selector, "*") {
-		return strings.EqualFold(name, selector)
-	}
-	if strings.HasPrefix(selector, "*.") {
-		ext := selector[1:]
-		return strings.HasSuffix(strings.ToLower(name), strings.ToLower(ext))
+		return name == selector
 	}
 	if strings.HasPrefix(selector, "*") {
-		suffix := selector[1:]
-		return strings.HasSuffix(name, suffix) || strings.HasSuffix(strings.ToLower(name), strings.ToLower(suffix))
+		return strings.HasSuffix(name, selector[1:])
 	}
 	return false
 }

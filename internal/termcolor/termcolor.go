@@ -14,11 +14,6 @@ type Style struct {
 
 // New returns a color style helper.
 func New(enabled bool) *Style {
-	if !enabled {
-		color.NoColor = true
-	} else {
-		color.NoColor = false
-	}
 	var styler *lscolor.Styler
 	if enabled {
 		styler = lscolor.New()
@@ -26,27 +21,26 @@ func New(enabled bool) *Style {
 	return &Style{enabled: enabled, styler: styler}
 }
 
-// Heading colors the heading text.
-func (s *Style) Heading(value string) string {
+func (s *Style) sprint(c *color.Color, value string) string {
 	if !s.enabled {
 		return value
 	}
-	return color.New(color.FgGreen).Sprint(value)
+	c.EnableColor()
+	return c.Sprint(value)
+}
+
+// Heading colors the heading text.
+func (s *Style) Heading(value string) string {
+	return s.sprint(color.New(color.FgGreen), value)
 }
 
 func (s *Style) Header(value string) string {
-	if !s.enabled {
-		return value
-	}
-	return color.New(color.FgGreen, color.Bold).Sprint(value)
+	return s.sprint(color.New(color.FgGreen, color.Bold), value)
 }
 
 // Index colors the index column
 func (s *Style) Index(value string) string {
-	if !s.enabled {
-		return value
-	}
-	return color.New(color.FgGreen, color.Bold).Sprint(value)
+	return s.sprint(color.New(color.FgGreen, color.Bold), value)
 }
 
 // Name colors a filename using LS_COLORS-compatible rules.
@@ -59,10 +53,7 @@ func (s *Style) Name(name string, kind listing.Kind) string {
 
 // Size colors the size column
 func (s *Style) Size(value string) string {
-	if !s.enabled {
-		return value
-	}
-	return color.New(color.FgCyan).Sprint(value)
+	return s.sprint(color.New(color.FgCyan), value)
 }
 
 // Modified colors the modified column
@@ -70,21 +61,15 @@ func (s *Style) Modified(value string) string {
 	if !s.enabled || value == "-" {
 		return value
 	}
-	return color.New(color.FgMagenta).Sprint(value)
+	return s.sprint(color.New(color.FgMagenta), value)
 }
 
 // Error colors error text red.
 func (s *Style) Error(msg string) string {
-	if !s.enabled {
-		return msg
-	}
-	return color.New(color.FgRed).Sprint(msg)
+	return s.sprint(color.New(color.FgRed), msg)
 }
 
 // Empty colors empty table messages.
 func (s *Style) Empty(msg string) string {
-	if !s.enabled {
-		return msg
-	}
-	return color.New(color.FgHiBlack).Sprint(msg)
+	return s.sprint(color.New(color.FgHiBlack), msg)
 }

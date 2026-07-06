@@ -7,24 +7,18 @@ import (
 )
 
 func TestResolveNoIconsFlagWins(t *testing.T) {
-	t.Setenv("NLS_ICONS", "1")
-	t.Setenv("NERD_FONT", "1")
 	if got := Resolve(true, true, true); got != SetNone {
 		t.Fatalf("no-icons flag should win, got %v", got)
 	}
 }
 
 func TestResolveDefaultsOff(t *testing.T) {
-	t.Setenv("NLS_ICONS", "")
-	t.Setenv("NERD_FONT", "1")
 	if got := Resolve(false, false, true); got != SetNone {
 		t.Fatalf("everything off should yield SetNone, got %v", got)
 	}
 }
 
 func TestResolveCanDisableSpecialIcons(t *testing.T) {
-	t.Setenv("NLS_ICONS", "")
-	t.Setenv("NERD_FONT", "1")
 	if got := Resolve(false, true, false); got != SetNerdBasic {
 		t.Fatalf("special icons disabled should yield basic nerd set, got %v", got)
 	}

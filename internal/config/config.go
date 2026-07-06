@@ -50,8 +50,8 @@ const (
 
 // Config is the nls user configuration loaded from XDG paths.
 type Config struct {
-	// Icons enables Nerd Font icons by default. --no-icons and NLS_ICONS
-	// still override this.
+	// Icons enables Nerd Font icons by default. --no-icons still
+	// overrides this.
 	Icons IconsConfig `toml:"icons"`
 	// DirSize holds defaults for bounded directory size estimation.
 	DirSize DirSizeConfig `toml:"dir_size"`

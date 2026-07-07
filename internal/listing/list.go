@@ -33,6 +33,7 @@ type ListOptions struct {
 	EstimateDepth int
 	Precise       bool
 	Sort          SortOptions
+	GitStatus     bool
 }
 
 type operand struct {
@@ -47,6 +48,11 @@ type operand struct {
 func List(paths []string, opts ListOptions) ([]Block, []error) {
 	if len(paths) == 0 {
 		paths = []string{"."}
+	}
+
+	var gc gitStatusCache
+	if opts.GitStatus {
+		gc = gitStatusCache{}
 	}
 
 	var errs []error
@@ -73,14 +79,14 @@ func List(paths []string, opts ListOptions) ([]Block, []error) {
 			return []Block{{Entries: []Entry{op.entry}}}, errs
 		}
 		if opts.Recursive {
-			return listRecursive(op.path, opts, &errs), errs
+			return listRecursive(op.path, opts, &errs, gc), errs
 		}
 		entries, err := readDirAt(op.path, opts, &errs)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", op.raw, err))
 			return nil, errs
 		}
-		return []Block{{Dir: op.path, Entries: entries, Directory: true}}, errs
+		return []Block{dirBlock("", op.path, entries, gc)}, errs
 	}
 
 	var files []Entry
@@ -101,7 +107,7 @@ func List(paths []string, opts ListOptions) ([]Block, []error) {
 	}
 	for _, op := range dirs {
 		if opts.Recursive {
-			blocks = append(blocks, listRecursive(op.path, opts, &errs)...)
+			blocks = append(blocks, listRecursive(op.path, opts, &errs, gc)...)
 			continue
 		}
 
@@ -110,10 +116,20 @@ func List(paths []string, opts ListOptions) ([]Block, []error) {
 			errs = append(errs, fmt.Errorf("%s: %w", op.raw, err))
 			continue
 		}
-		blocks = append(blocks, Block{Header: op.path, Dir: op.path, Entries: entries, Directory: true})
+		blocks = append(blocks, dirBlock(op.path, op.path, entries, gc))
 	}
 
 	return blocks, errs
+}
+
+// dirBlock builds a directory block, decorating entries with git status
+// when a cache was created for the listing.
+func dirBlock(header, dir string, entries []Entry, gc gitStatusCache) Block {
+	b := Block{Header: header, Dir: dir, Entries: entries, Directory: true}
+	if gc != nil {
+		b.GitRepo = gc.decorate(dir, entries)
+	}
+	return b
 }
 
 func sortOperands(operands []operand, sort SortOptions) {
@@ -126,22 +142,22 @@ func sortOperands(operands []operand, sort SortOptions) {
 	})
 }
 
-func listRecursive(dir string, opts ListOptions, errs *[]error) []Block {
+func listRecursive(dir string, opts ListOptions, errs *[]error, gc gitStatusCache) []Block {
 	entries, err := readDirAt(dir, opts, errs)
 	if err != nil {
 		*errs = append(*errs, fmt.Errorf("%s: %w", dir, err))
 		return nil
 	}
 
-	blocks := []Block{{Header: dir, Dir: dir, Entries: entries, Directory: true}}
+	blocks := []Block{dirBlock(dir, dir, entries, gc)}
 	for _, e := range entries {
 		if e.Kind != KindDirectory {
 			continue
 		}
-		if e.Name == "." || e.Name == ".." {
+		if e.Name == "." || e.Name == ".." || e.Name == ".git" {
 			continue
 		}
-		blocks = append(blocks, listRecursive(childPath(dir, e.Name), opts, errs)...)
+		blocks = append(blocks, listRecursive(childPath(dir, e.Name), opts, errs, gc)...)
 	}
 	return blocks
 }

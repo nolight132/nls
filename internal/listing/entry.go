@@ -36,6 +36,7 @@ type Entry struct {
 	Links         uint64
 	Owner         string
 	Group         string
+	GitStatus     string
 }
 
 func formatPermissions(mode fs.FileMode) string {

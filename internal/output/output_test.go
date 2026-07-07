@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -208,6 +209,62 @@ func TestRenderTableIgnoresUnknownColumn(t *testing.T) {
 	out := buf.String()
 	if strings.Contains(out, "bogus") {
 		t.Fatalf("unknown column should be skipped: %q", out)
+	}
+}
+
+func TestRenderTableHidesGitColumnOutsideRepo(t *testing.T) {
+	entries := []listing.Entry{{Name: "a.txt", Kind: listing.KindFile, GitStatus: "??"}}
+	opts := RenderOptions{
+		UseTable: true,
+		IsTTY:    true,
+		Color:    false,
+		IconSet:  icons.SetNone,
+		Now:      time.Now(),
+		Columns:  []string{"id", "name", "git"},
+	}
+
+	var buf bytes.Buffer
+	if err := Render(&buf, []listing.Block{{Entries: entries}}, opts); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "git") {
+		t.Fatalf("git column should be hidden outside a repo: %q", buf.String())
+	}
+
+	buf.Reset()
+	if err := Render(&buf, []listing.Block{{Entries: entries, GitRepo: true}}, opts); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "git") || !strings.Contains(buf.String(), "??") {
+		t.Fatalf("git column should render inside a repo: %q", buf.String())
+	}
+}
+
+func TestRenderTableGitDividerConnectsToBorders(t *testing.T) {
+	entries := []listing.Entry{{Name: "a.txt", Kind: listing.KindFile, GitStatus: "?│M"}}
+	var buf bytes.Buffer
+	if err := Render(&buf, []listing.Block{{Entries: entries, GitRepo: true}}, RenderOptions{
+		UseTable: true,
+		IsTTY:    true,
+		Color:    false,
+		IconSet:  icons.SetNone,
+		Now:      time.Now(),
+		Columns:  []string{"name", "git"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	lines := strings.Split(buf.String(), "\n")
+	mid, data, bottom := []rune(lines[2]), []rune(lines[3]), []rune(lines[4])
+	at := slices.Index(mid, '┬')
+	if at == -1 {
+		t.Fatalf("mid border has no ┬: %q", lines[2])
+	}
+	if data[at] != '│' {
+		t.Errorf("data row rune at ┬ column = %q, want │: %q", data[at], lines[3])
+	}
+	if bottom[at] != '┴' {
+		t.Errorf("bottom border rune under divider = %q, want ┴: %q", bottom[at], lines[4])
 	}
 }
 

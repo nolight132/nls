@@ -51,6 +51,7 @@ type Config struct {
 	JSON        bool
 	Precise     bool
 	Paths       []string
+	GitStatus   bool
 }
 
 // Root returns the root cobra command.
@@ -106,6 +107,7 @@ func Root() *cobra.Command {
 	cmd.Flags().BoolVar(&cfg.NoColor, "no-color", false, "disable colors")
 	cmd.Flags().BoolVar(&cfg.JSON, "json", false, "output JSON")
 	cmd.Flags().BoolVarP(&cfg.Precise, "precise", "P", false, "compute exact directory sizes without depth, time, or entry limits")
+	cmd.Flags().BoolVarP(&cfg.GitStatus, "git-status", "g", false, "show git status")
 	cmd.Flags().BoolP("version", "", false, "version for nls")
 	configureHelp(cmd)
 
@@ -118,6 +120,7 @@ func configureHelp(cmd *cobra.Command) {
 		"time", "access-time", "ctime", "size", "extension", "unsorted", "fast",
 		"directory", "classify", "slash", "ignore-backups", "dereference",
 		"quote-name", "group-directories-first", "inode", "size-blocks",
+		"git-status",
 	)
 	markGroup(cmd, "Plain-output layout flags", "one", "comma")
 	markGroup(cmd, "nls presentation flags", "json", "precise", "no-icons", "no-color", "help", "version")
@@ -216,6 +219,7 @@ func buildListOptions(cfg *Config, interactive bool) listing.ListOptions {
 		QuoteNames:    cfg.QuoteName,
 		Commas:        cfg.Commas,
 		Sort:          buildSort(cfg),
+		GitStatus:     cfg.GitStatus,
 	}
 }
 
@@ -322,6 +326,9 @@ func buildColumns(cfg *Config) []string {
 	}
 	if cfg.Long && !seen[string(config.ColumnPermissions)] {
 		cols = append(cols, string(config.ColumnPermissions))
+	}
+	if cfg.GitStatus && !seen[string(config.ColumnGitStatus)] {
+		cols = append(cols, string(config.ColumnGitStatus))
 	}
 	return cols
 }

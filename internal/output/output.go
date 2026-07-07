@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -59,6 +60,7 @@ type JSONRow struct {
 	Modified    string `json:"modified,omitempty"`
 	Permissions string `json:"permissions"`
 	LinkTarget  string `json:"link_target,omitempty"`
+	GitStatus   string `json:"git_status,omitempty"`
 }
 
 // Render writes listing output according to options.
@@ -78,7 +80,9 @@ func Render(w io.Writer, blocks []listing.Block, opts RenderOptions) error {
 			if block.Header != "" {
 				fmt.Fprintf(w, "%s:\n", block.Header)
 			}
-			if err := renderTable(w, block.Entries, opts); err != nil {
+			blockOpts := opts
+			blockOpts.Columns = columnsForBlock(block, opts.Columns)
+			if err := renderTable(w, block.Entries, blockOpts); err != nil {
 				return err
 			}
 		}
@@ -98,6 +102,7 @@ func renderJSON(w io.Writer, blocks []listing.Block, opts RenderOptions) error {
 				Size:        e.Size,
 				Permissions: e.Permissions,
 				LinkTarget:  e.LinkTarget,
+				GitStatus:   e.GitStatus,
 			}
 			if !e.Modified.IsZero() {
 				row.Modified = e.Modified.Format(time.RFC3339)
@@ -115,6 +120,20 @@ func renderJSON(w io.Writer, blocks []listing.Block, opts RenderOptions) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(rows)
+}
+
+// columnsForBlock hides the git column for blocks outside a git worktree.
+func columnsForBlock(block listing.Block, cols []string) []string {
+	if block.GitRepo || !slices.Contains(cols, "git") {
+		return cols
+	}
+	filtered := make([]string, 0, len(cols)-1)
+	for _, c := range cols {
+		if c != "git" {
+			filtered = append(filtered, c)
+		}
+	}
+	return filtered
 }
 
 func entryPath(dir, name string) string {

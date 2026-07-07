@@ -10,4 +10,7 @@ type Block struct {
 	Dir       string
 	Entries   []Entry
 	Directory bool
+	// GitRepo reports whether a git status lookup succeeded for this
+	// block's directory; the git column only renders when it did.
+	GitRepo bool
 }

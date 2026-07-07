@@ -46,6 +46,9 @@ const (
 	// Optional counts, shown with -i and -s.
 	ColumnInode  ColumnEntry = "inode"
 	ColumnBlocks ColumnEntry = "blocks"
+
+	// Git status.
+	ColumnGitStatus ColumnEntry = "git"
 )
 
 // Config is the nls user configuration loaded from XDG paths.
@@ -98,7 +101,7 @@ func isValidColumn(c ColumnEntry) bool {
 	case ColumnId, ColumnName, ColumnType, ColumnSize,
 		ColumnModified, ColumnAccessed, ColumnChanged,
 		ColumnPermissions, ColumnLinks, ColumnOwner, ColumnGroup,
-		ColumnInode, ColumnBlocks:
+		ColumnInode, ColumnBlocks, ColumnGitStatus:
 		return true
 	}
 	return false

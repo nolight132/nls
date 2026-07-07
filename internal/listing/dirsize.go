@@ -11,6 +11,7 @@ import (
 
 type dirSizeResult struct {
 	bytes  int64
+	newest time.Time
 	approx bool
 }
 
@@ -109,6 +110,9 @@ func estimateDirectorySizes(parent string, entries []Entry, opts ListOptions) {
 				result := sumDirSize(j.path, listingDeadline, bounded, maxWalkDepth, boundedMaxDepth, walkBudget, maxWalkEntries)
 				entries[j.idx].Size = result.bytes
 				entries[j.idx].SizeApprox = result.approx
+				if result.newest.After(entries[j.idx].Modified) {
+					entries[j.idx].Modified = result.newest
+				}
 			}
 		}()
 	}
@@ -131,6 +135,7 @@ func sumDirSize(root string, listingDeadline time.Time, bounded bool, maxWalkDep
 
 	var total int64
 	var count int
+	var newest time.Time
 	truncated := false
 	root = filepath.Clean(root)
 
@@ -162,6 +167,9 @@ func sumDirSize(root string, listingDeadline time.Time, bounded bool, maxWalkDep
 		count++
 
 		if d.IsDir() {
+			if info, err := d.Info(); err == nil && info.ModTime().After(newest) {
+				newest = info.ModTime()
+			}
 			return nil
 		}
 		info, err := os.Lstat(path)
@@ -169,10 +177,13 @@ func sumDirSize(root string, listingDeadline time.Time, bounded bool, maxWalkDep
 			return nil
 		}
 		total += diskUsageOf(info)
+		if info.ModTime().After(newest) {
+			newest = info.ModTime()
+		}
 		return nil
 	})
 
-	return dirSizeResult{bytes: total, approx: truncated}
+	return dirSizeResult{bytes: total, newest: newest, approx: truncated}
 }
 
 func treeDepth(root, path string) int {

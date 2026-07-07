@@ -92,6 +92,41 @@ func TestEstimateDirectorySizesRespectsWalkDepth(t *testing.T) {
 	}
 }
 
+func TestEstimateDirectorySizesBubblesNewestMtime(t *testing.T) {
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "docs")
+	inner := filepath.Join(sub, "nested")
+	if err := os.MkdirAll(inner, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(inner, "a.txt")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Deep file changed recently; the directories themselves have not,
+	// mirroring an edit that adds no direct children.
+	fileTime := time.Now().Add(-time.Hour).Truncate(time.Second)
+	dirTime := fileTime.Add(-24 * time.Hour)
+	if err := os.Chtimes(file, fileTime, fileTime); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{inner, sub} {
+		if err := os.Chtimes(p, dirTime, dirTime); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	entries, err := ReadDir(dir, ListOptions{EstimateSizes: true, EstimateDepth: EstimateDepthMax})
+	if err != nil {
+		t.Fatal(err)
+	}
+	docs := findEntry(t, entries, "docs")
+	if !docs.Modified.Equal(fileTime) {
+		t.Fatalf("docs modified = %v, want newest nested change %v", docs.Modified, fileTime)
+	}
+}
+
 func diskUsageAt(t *testing.T, path string) int64 {
 	t.Helper()
 	info, err := os.Lstat(path)

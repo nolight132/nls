@@ -18,6 +18,9 @@ func TestHumanSize(t *testing.T) {
 		{1073741824, "1.0 GiB"},
 		{1099511627776, "1.0 TiB"},
 		{1125899906842624, "1.0 PiB"},
+		{1048575, "1.0 MiB"},
+		{1073741823, "1.0 GiB"},
+		{1047552, "1023.0 KiB"},
 	}
 
 	for _, tt := range tests {
@@ -74,5 +77,23 @@ func TestModifiedLongAgoStaysRelative(t *testing.T) {
 	old := time.Date(2026, 1, 1, 8, 30, 0, 0, time.UTC)
 	if got := Modified(old, now); got != "5 months ago" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestModifiedFuture(t *testing.T) {
+	now := time.Date(2026, 6, 20, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		t    time.Time
+		want string
+	}{
+		{now.Add(30 * time.Second), "just now"},
+		{now.Add(5 * time.Hour), "today"},
+		{now.Add(24 * time.Hour), "tomorrow"},
+		{time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC), "2030-01-01"},
+	}
+	for _, tt := range tests {
+		if got := Modified(tt.t, now); got != tt.want {
+			t.Errorf("Modified(%v) = %q, want %q", tt.t, got, tt.want)
+		}
 	}
 }

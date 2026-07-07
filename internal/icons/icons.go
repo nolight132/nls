@@ -14,8 +14,7 @@ const (
 )
 
 // Resolve picks an icon set from flags and config.
-// Precedence: noIcons flag > configEnabled > default off.
-// Icons are off by default to match Nushell ls.
+// Precedence: noIcons flag > configEnabled > config default (on).
 func Resolve(noIcons bool, configEnabled bool, specialIcons bool) Set {
 	if noIcons {
 		return SetNone

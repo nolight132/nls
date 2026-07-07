@@ -85,6 +85,11 @@ func estimateDirectorySizes(parent string, entries []Entry, depth int, precise b
 		if e.Kind != KindDirectory {
 			continue
 		}
+		// "." re-walks the listed dir and ".." walks its parent; both
+		// waste I/O and eat MaxDirsPerListing slots.
+		if e.Name == "." || e.Name == ".." {
+			continue
+		}
 		if (bounded || maxMode) && maxDirs > 0 && len(jobs) >= maxDirs {
 			break
 		}

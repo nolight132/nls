@@ -185,6 +185,10 @@ func renderEmptyTable(w io.Writer, styles *termcolor.Style) {
 
 func tableDisplayName(e listing.Entry, opts RenderOptions) string {
 	name := listing.DisplayName(e, opts.Classify, opts.DirSlash, opts.QuoteName, true)
+	if opts.IsTTY {
+		// Piped output keeps raw names so scripts see the real file.
+		name = sanitizeName(name)
+	}
 	return icons.For(e, opts.IconSet) + name
 }
 

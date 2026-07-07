@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,6 +16,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
+
+// ErrReported signals a nonzero exit for errors already written to stderr.
+var ErrReported = errors.New("errors already reported")
 
 // Config holds parsed CLI flags.
 type Config struct {
@@ -64,7 +68,9 @@ func Root() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg.Paths = args
 			if unsortedF {
+				// POSIX -f: unsorted and all entries.
 				cfg.Unsorted = true
+				cfg.All = true
 			}
 			return run(cfg)
 		},
@@ -82,7 +88,7 @@ func Root() *cobra.Command {
 	cmd.Flags().BoolVarP(&cfg.SortSize, "size", "S", false, "sort by file size")
 	cmd.Flags().BoolVarP(&cfg.SortExt, "extension", "X", false, "sort alphabetically by extension")
 	cmd.Flags().BoolVarP(&cfg.Unsorted, "unsorted", "U", false, "do not sort")
-	cmd.Flags().BoolVarP(&unsortedF, "fast", "f", false, "do not sort (as -U)")
+	cmd.Flags().BoolVarP(&unsortedF, "fast", "f", false, "do not sort, list all entries (as -aU)")
 	cmd.Flags().BoolVarP(&cfg.Directory, "directory", "d", false, "list directories themselves, not contents")
 	cmd.Flags().BoolVarP(&cfg.Classify, "classify", "F", false, "append indicator (one of */=>@|)")
 	cmd.Flags().BoolVarP(&cfg.DirSlash, "slash", "p", false, "append / to directory names")
@@ -253,16 +259,22 @@ func run(cfg *Config) error {
 		QuoteName:  cfg.QuoteName,
 		ShowInode:  cfg.Inode,
 		ShowBlocks: cfg.Blocks,
-		TimeField:  timeField(cfg),
 		UseTable:   interactive,
 		Columns:    buildColumns(cfg),
 	}
 
-	blocks, err := listing.List(expanded, listOpts)
-	if err != nil {
+	blocks, errs := listing.List(expanded, listOpts)
+	suggest := output.StderrIsTTY()
+	for _, e := range errs {
+		output.WriteError(e, suggest)
+	}
+	if err := output.Render(os.Stdout, blocks, outOpts); err != nil {
 		return err
 	}
-	return output.Render(os.Stdout, blocks, outOpts)
+	if len(errs) > 0 {
+		return ErrReported
+	}
+	return nil
 }
 
 func loadUserConfig(w io.Writer) config.Config {
@@ -279,6 +291,9 @@ func buildColumns(cfg *Config) []string {
 	seen := make(map[string]bool, len(userCfg.DefaultColumns)+3)
 	for _, c := range userCfg.DefaultColumns {
 		s := string(c)
+		if s == string(config.ColumnModified) {
+			s = timeColumn(cfg)
+		}
 		if !seen[s] {
 			cols = append(cols, s)
 			seen[s] = true
@@ -325,6 +340,18 @@ func timeField(cfg *Config) listing.TimeField {
 		return listing.TimeChanged
 	default:
 		return listing.TimeModified
+	}
+}
+
+// timeColumn maps -u/-c to the column showing the sorted timestamp.
+func timeColumn(cfg *Config) string {
+	switch timeField(cfg) {
+	case listing.TimeAccessed:
+		return string(config.ColumnAccessed)
+	case listing.TimeChanged:
+		return string(config.ColumnChanged)
+	default:
+		return string(config.ColumnModified)
 	}
 }
 

@@ -204,3 +204,18 @@ func setUserForTest(t *testing.T, cfg config.Config) {
 	config.User = cfg
 	t.Cleanup(func() { config.User = prev })
 }
+
+func TestBuildColumnsTimeFlagSwapsModified(t *testing.T) {
+	setUserForTest(t, config.Defaults())
+	cols := buildColumns(&Config{SortAccess: true})
+	want := []string{"id", "name", "size", "accessed"}
+	for i, w := range want {
+		if cols[i] != w {
+			t.Fatalf("cols = %v, want %v", cols, want)
+		}
+	}
+	cols = buildColumns(&Config{SortChange: true})
+	if cols[3] != "changed" {
+		t.Fatalf("cols = %v, want changed as time column", cols)
+	}
+}

@@ -33,6 +33,11 @@ func readDirNamesUnsorted(dir string) ([]string, error) {
 			if reclen <= 0 || off+reclen > n {
 				break
 			}
+			// d_ino == 0 marks a deleted-but-present entry; readdir skips it.
+			if binary.LittleEndian.Uint64(buf[off:]) == 0 {
+				off += reclen
+				continue
+			}
 			nameBytes := buf[off+19 : off+reclen]
 			for i, b := range nameBytes {
 				if b == 0 {

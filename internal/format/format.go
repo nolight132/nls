@@ -30,8 +30,14 @@ func humanSize(nbytes int64) string {
 	}
 
 	suffixes := []string{"KiB", "MiB", "GiB", "TiB", "PiB", "EiB"}
-	suffix := suffixes[exp]
-	return fmt.Sprintf("%.1f %s", float64(nbytes)/float64(div), suffix)
+	value := float64(nbytes) / float64(div)
+	// %.1f rounds values just under the unit boundary up to "1024.0";
+	// promote them to the next suffix instead.
+	if value >= 1023.95 && exp < len(suffixes)-1 {
+		value /= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %s", value, suffixes[exp])
 }
 
 // Modified formats mtime for display.
@@ -41,6 +47,10 @@ func Modified(t time.Time, now time.Time) string {
 	}
 
 	diff := now.Sub(t)
+	// Allow a minute of clock skew before calling a timestamp future.
+	if diff < -time.Minute {
+		return future(t, now)
+	}
 	switch {
 	case diff < time.Minute:
 		return "just now"
@@ -80,4 +90,22 @@ func Modified(t time.Time, now time.Time) string {
 		}
 		return fmt.Sprintf("%d years ago", years)
 	}
+}
+
+// future labels timestamps ahead of now instead of claiming "just now".
+func future(t time.Time, now time.Time) string {
+	switch {
+	case sameDate(t, now):
+		return "today"
+	case sameDate(t, now.AddDate(0, 0, 1)):
+		return "tomorrow"
+	default:
+		return t.Format("2006-01-02")
+	}
+}
+
+func sameDate(a, b time.Time) bool {
+	ay, am, ad := a.Date()
+	by, bm, bd := b.Date()
+	return ay == by && am == bm && ad == bd
 }

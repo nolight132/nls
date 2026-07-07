@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/nolight132/nls/internal/format"
 	"github.com/nolight132/nls/internal/icons"
@@ -40,7 +41,6 @@ type RenderOptions struct {
 	QuoteName  bool
 	ShowInode  bool
 	ShowBlocks bool
-	TimeField  listing.TimeField
 	UseTable   bool
 	// Columns controls which columns appear in table mode and their order.
 	// Empty falls back to the built-in default set.
@@ -50,10 +50,11 @@ type RenderOptions struct {
 // JSONRow is a single entry in JSON output.
 type JSONRow struct {
 	Name        string `json:"name"`
+	Path        string `json:"path"`
 	Type        string `json:"type"`
 	Size        int64  `json:"size"`
 	SizeHuman   string `json:"size_human,omitempty"`
-	Modified    string `json:"modified"`
+	Modified    string `json:"modified,omitempty"`
 	Permissions string `json:"permissions"`
 	LinkTarget  string `json:"link_target,omitempty"`
 }
@@ -65,7 +66,7 @@ func Render(w io.Writer, blocks []listing.Block, opts RenderOptions) error {
 	}
 
 	if opts.JSON {
-		return renderJSON(w, flattenEntries(blocks), opts)
+		return renderJSON(w, blocks, opts)
 	}
 	if opts.UseTable {
 		for i, block := range blocks {
@@ -84,34 +85,41 @@ func Render(w io.Writer, blocks []listing.Block, opts RenderOptions) error {
 	return renderPlain(w, blocks, opts)
 }
 
-func flattenEntries(blocks []listing.Block) []listing.Entry {
-	var all []listing.Entry
+func renderJSON(w io.Writer, blocks []listing.Block, opts RenderOptions) error {
+	var rows []JSONRow
 	for _, b := range blocks {
-		all = append(all, b.Entries...)
+		for _, e := range b.Entries {
+			row := JSONRow{
+				Name:        e.Name,
+				Path:        entryPath(b.Dir, e.Name),
+				Type:        typeLabel(e),
+				Size:        e.Size,
+				Permissions: e.Permissions,
+				LinkTarget:  e.LinkTarget,
+			}
+			if !e.Modified.IsZero() {
+				row.Modified = e.Modified.Format(time.RFC3339)
+			}
+			if opts.Human {
+				row.SizeHuman = format.Size(e.Size, true, e.SizeApprox)
+			}
+			rows = append(rows, row)
+		}
 	}
-	return all
-}
-
-func renderJSON(w io.Writer, entries []listing.Entry, opts RenderOptions) error {
-	rows := make([]JSONRow, 0, len(entries))
-	for _, e := range entries {
-		row := JSONRow{
-			Name:        e.Name,
-			Type:        typeLabel(e),
-			Size:        e.Size,
-			Modified:    format.Modified(e.Modified, opts.Now),
-			Permissions: e.Permissions,
-			LinkTarget:  e.LinkTarget,
-		}
-		if opts.Human {
-			row.SizeHuman = format.Size(e.Size, true, e.SizeApprox)
-		}
-		rows = append(rows, row)
+	if rows == nil {
+		rows = []JSONRow{}
 	}
 
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(rows)
+}
+
+func entryPath(dir, name string) string {
+	if dir == "" || name == "." || name == ".." {
+		return name
+	}
+	return filepath.Join(dir, name)
 }
 
 func typeLabel(e listing.Entry) string {
@@ -225,6 +233,20 @@ func minInt(values ...int) int {
 		}
 	}
 	return min
+}
+
+// sanitizeName hides control characters on terminals, where a crafted
+// filename could break table layout or inject escape sequences.
+func sanitizeName(s string) string {
+	if !strings.ContainsFunc(s, unicode.IsControl) {
+		return s
+	}
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return '?'
+		}
+		return r
+	}, s)
 }
 
 func sentenceCase(s string) string {

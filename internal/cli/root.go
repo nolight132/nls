@@ -271,7 +271,7 @@ func run(cfg *Config) error {
 		Color:      colorEnabled,
 		IconSet:    iconSet,
 		IsTTY:      isTTY,
-		Plain:      plainMode(cfg, isTTY),
+		Plain:      plainMode(cfg),
 		Classify:   cfg.Classify,
 		DirSlash:   cfg.DirSlash,
 		QuoteName:  cfg.QuoteName,
@@ -377,7 +377,7 @@ func timeColumn(cfg *Config) string {
 	}
 }
 
-func plainMode(cfg *Config, isTTY bool) output.PlainMode {
+func plainMode(cfg *Config) output.PlainMode {
 	switch {
 	case cfg.Commas:
 		return output.PlainCommas

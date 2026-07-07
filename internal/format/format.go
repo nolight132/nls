@@ -30,8 +30,14 @@ func humanSize(nbytes int64) string {
 	}
 
 	suffixes := []string{"KiB", "MiB", "GiB", "TiB", "PiB", "EiB"}
-	suffix := suffixes[exp]
-	return fmt.Sprintf("%.1f %s", float64(nbytes)/float64(div), suffix)
+	value := float64(nbytes) / float64(div)
+	// %.1f rounds values just under the unit boundary up to "1024.0";
+	// promote them to the next suffix instead.
+	if value >= 1023.95 && exp < len(suffixes)-1 {
+		value /= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %s", value, suffixes[exp])
 }
 
 // Modified formats mtime for display.

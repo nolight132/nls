@@ -133,7 +133,7 @@ func TestTableCapsWidthToTerminal(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	for _, line := range strings.Split(strings.TrimRight(buf.String(), "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimRight(buf.String(), "\n"), "\n") {
 		if w := visibleWidth(line); w > 60 {
 			t.Errorf("line exceeds width 60 (got %d): %q", w, line)
 		}

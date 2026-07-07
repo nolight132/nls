@@ -60,7 +60,7 @@ func TestGitStatusInSubdirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	blocks, errs := List([]string{sub}, ListOptions{GitStatus: true})
+	blocks, errs := List([]string{sub}, ListOptions{GitStatus: true, All: true})
 	if len(errs) > 0 {
 		t.Fatal(errs)
 	}
@@ -68,6 +68,9 @@ func TestGitStatusInSubdirectory(t *testing.T) {
 		t.Error("block inside a repo should set GitRepo")
 	}
 	entries := blocks[0].Entries
+	if got := findEntry(t, entries, ".").GitStatus; got != " │ " {
+		t.Errorf("dot entry = %q, want neutral cell to keep the divider unbroken", got)
+	}
 	if got := findEntry(t, entries, "new.txt").GitStatus; got != "?│?" {
 		t.Errorf("untracked = %q, want ?│?", got)
 	}

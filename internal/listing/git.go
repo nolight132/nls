@@ -86,6 +86,7 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 		}
 		if !nested {
 			entries[i].GitStatus = gitStatusDisplay(s.Staging, s.Worktree)
+			entries[i].GitState = gitStateOf(s.Staging, s.Worktree)
 			continue
 		}
 		a := aggs[i]
@@ -99,6 +100,7 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 	for i, a := range aggs {
 		if entries[i].GitStatus == "" {
 			entries[i].GitStatus = gitStatusDisplay(a.staging, a.worktree)
+			entries[i].GitState = gitStateOf(a.staging, a.worktree)
 		}
 	}
 
@@ -110,17 +112,37 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 	}
 	for i := range entries {
 		e := &entries[i]
-		if e.Name == "." || e.Name == ".." || e.GitStatus != "" {
+		if e.GitStatus != "" {
+			continue
+		}
+		// Dot entries get the neutral cell so the divider line stays
+		// unbroken; their state is not meaningful, so it stays None.
+		if e.Name == "." || e.Name == ".." {
+			e.GitStatus = gitStatusDisplay(git.Unmodified, git.Unmodified)
 			continue
 		}
 		segs := append(base[:len(base):len(base)], e.Name)
 		if e.Name == ".git" || matcher.Match(segs, e.Kind == KindDirectory) {
 			e.GitStatus = gitStatusIgnoredDisplay()
+			e.GitState = GitStateIgnored
 			continue
 		}
 		e.GitStatus = gitStatusDisplay(git.Unmodified, git.Unmodified)
+		e.GitState = GitStateClean
 	}
 	return true
+}
+
+// gitStateOf classifies a status pair from the status map.
+func gitStateOf(staging, worktree git.StatusCode) GitState {
+	switch {
+	case staging == git.Untracked && worktree == git.Untracked:
+		return GitStateUntracked
+	case staging == git.Unmodified && worktree == git.Unmodified:
+		return GitStateClean
+	default:
+		return GitStateModified
+	}
 }
 
 // loadRepoGitInfo computes the worktree status and ignore matcher for one

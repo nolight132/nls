@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"testing"
 	"time"
-
-	"github.com/nolight132/nls/internal/config"
 )
 
 func TestEstimateDirectorySizesUnlimited(t *testing.T) {
@@ -130,26 +128,17 @@ func TestSumDirSizeMarksApproxWhenEntryCapExceeded(t *testing.T) {
 }
 
 func TestDirSizeCapsUnlimitedTimingHasNoLimits(t *testing.T) {
-	setConfigUserForTest(t, config.Config{DirSize: config.DirSizeConfig{DefaultDepth: 0, Timing: "unlimited"}})
-	caps := dirSizeCapsFor(EstimateDepthBounded, false)
+	caps := dirSizeCapsFor(ListOptions{EstimateDepth: EstimateDepthBounded, DirSizeTiming: "unlimited"})
 	if caps != (dirSizeCaps{}) {
 		t.Fatalf("unlimited caps = %+v, want zero caps", caps)
 	}
 }
 
 func TestPreciseIgnoresTimingLimits(t *testing.T) {
-	setConfigUserForTest(t, config.Config{DirSize: config.DirSizeConfig{DefaultDepth: 2, Timing: "strict"}})
-	caps := dirSizeCapsFor(EstimateDepthMax, true)
+	caps := dirSizeCapsFor(ListOptions{EstimateDepth: EstimateDepthMax, Precise: true, DirSizeDepth: 2, DirSizeTiming: "strict"})
 	if caps != (dirSizeCaps{}) {
 		t.Fatalf("precise caps = %+v, want zero caps", caps)
 	}
-}
-
-func setConfigUserForTest(t *testing.T, cfg config.Config) {
-	t.Helper()
-	prev := config.User
-	config.User = cfg
-	t.Cleanup(func() { config.User = prev })
 }
 
 func TestTreeDepth(t *testing.T) {

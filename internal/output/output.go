@@ -47,7 +47,8 @@ type RenderOptions struct {
 	Width int
 	// Columns controls which columns appear in table mode and their order.
 	// Empty falls back to the built-in default set.
-	Columns []string
+	Columns         []string
+	GitColorEntries bool
 }
 
 // JSONRow is a single entry in JSON output.

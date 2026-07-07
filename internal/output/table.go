@@ -58,7 +58,11 @@ var columnRegistry = map[string]struct {
 	"name": {
 		header: "name", align: alignLeft, centerHeader: true,
 		render: func(e listing.Entry, _ int, ctx renderCtx) string {
-			return ctx.styles.Name(tableDisplayName(e, ctx.opts), e.Kind)
+			name := tableDisplayName(e, ctx.opts)
+			if ctx.opts.GitColorEntries {
+				return ctx.styles.NameGit(name, e.Kind, e.GitState)
+			}
+			return ctx.styles.Name(name, e.Kind)
 		},
 	},
 	"type": {

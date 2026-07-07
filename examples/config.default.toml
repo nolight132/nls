@@ -7,7 +7,7 @@
 # Omit a column to hide it; add one to enable it by default.
 # Flags -i, -s, -l still append their columns if not listed here.
 # Available: id, name, type, size, modified, accessed, changed,
-#            permissions, links, owner, group, inode, blocks
+#            permissions, links, owner, group, inode, blocks, git
 default_columns = [
     "id",
     "name",
@@ -34,3 +34,8 @@ default_depth = 0
 # Budget preset for default interactive estimates: strict, balanced, relaxed, or unlimited.
 # "unlimited" removes time, entry, and directory caps. May take a while for very large directories.
 timing = "balanced"
+
+[git]
+# Color entry names by git state when the git column (-g) is shown:
+# yellow = modified, green = untracked, gray = ignored.
+color_entries = true

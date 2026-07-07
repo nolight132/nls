@@ -7,8 +7,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/nolight132/nls/internal/config"
 )
 
 type dirSizeResult struct {
@@ -24,16 +22,16 @@ type dirSizeCaps struct {
 	MaxDepth          int
 }
 
-func dirSizeCapsFor(depth int, precise bool) dirSizeCaps {
-	if precise {
+func dirSizeCapsFor(opts ListOptions) dirSizeCaps {
+	if opts.Precise {
 		return dirSizeCaps{}
 	}
-	if depth == EstimateDepthMax {
+	if opts.EstimateDepth == EstimateDepthMax {
 		return dirSizeCaps{MaxWalkEntries: 200000, MaxDirsPerListing: 50}
 	}
 
-	caps := dirSizeCaps{MaxDepth: config.User.DirSize.DefaultDepth}
-	switch strings.ToLower(strings.TrimSpace(config.User.DirSize.Timing)) {
+	caps := dirSizeCaps{MaxDepth: opts.DirSizeDepth}
+	switch strings.ToLower(strings.TrimSpace(opts.DirSizeTiming)) {
 	case "unlimited":
 		return caps
 	case "strict":
@@ -56,16 +54,17 @@ func dirSizeCapsFor(depth int, precise bool) dirSizeCaps {
 }
 
 // estimateDirectorySizes fills Size for directory entries by summing file contents.
-func estimateDirectorySizes(parent string, entries []Entry, depth int, precise bool) {
+func estimateDirectorySizes(parent string, entries []Entry, opts ListOptions) {
 	type job struct {
 		idx  int
 		path string
 	}
 
+	depth := opts.EstimateDepth
 	bounded := depth == EstimateDepthBounded
 	maxMode := depth == EstimateDepthMax
 	maxWalkDepth := max(depth, 0)
-	caps := dirSizeCapsFor(depth, precise)
+	caps := dirSizeCapsFor(opts)
 	maxDirs := caps.MaxDirsPerListing
 	maxWalkEntries := caps.MaxWalkEntries
 	walkBudget := caps.WalkDuration

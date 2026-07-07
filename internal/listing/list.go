@@ -32,6 +32,10 @@ type ListOptions struct {
 	EstimateSizes bool
 	EstimateDepth int
 	Precise       bool
+	// DirSizeDepth and DirSizeTiming carry the user's dir_size config;
+	// they cap bounded size estimation.
+	DirSizeDepth  int
+	DirSizeTiming string
 	Sort          SortOptions
 	GitStatus     bool
 }
@@ -198,7 +202,7 @@ func readDirAt(dir string, opts ListOptions, errs *[]error) ([]Entry, error) {
 	}
 
 	if opts.EstimateSizes {
-		estimateDirectorySizes(dir, out, opts.EstimateDepth, opts.Precise)
+		estimateDirectorySizes(dir, out, opts)
 	}
 	sortEntries(out, opts.Sort)
 	return out, nil
@@ -246,7 +250,7 @@ func readDirAtUnsorted(dir string, opts ListOptions, errs *[]error) ([]Entry, er
 	}
 
 	if opts.EstimateSizes {
-		estimateDirectorySizes(dir, out, opts.EstimateDepth, opts.Precise)
+		estimateDirectorySizes(dir, out, opts)
 	}
 	return out, nil
 }

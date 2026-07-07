@@ -51,6 +51,13 @@ const (
 	ColumnGitStatus ColumnEntry = "git"
 )
 
+// GitConfig holds configuration for the git status column.
+type GitConfig struct {
+	// ColorEntries colors entry names by their git state when the git
+	// column is shown.
+	ColorEntries bool `toml:"color_entries"`
+}
+
 // Config is the nls user configuration loaded from XDG paths.
 type Config struct {
 	// Icons enables Nerd Font icons by default. --no-icons still
@@ -58,8 +65,10 @@ type Config struct {
 	Icons IconsConfig `toml:"icons"`
 	// DirSize holds defaults for bounded directory size estimation.
 	DirSize DirSizeConfig `toml:"dir_size"`
-	// Layout holds defaults for the layout of the listing.
+	// DefaultColumns sets the table columns and their order.
 	DefaultColumns []ColumnEntry `toml:"default_columns"`
+	// Git holds defaults for the -g git status column.
+	Git GitConfig `toml:"git"`
 }
 
 // Defaults returns the configuration used when no file is present.
@@ -80,11 +89,11 @@ func Defaults() Config {
 			ColumnSize,
 			ColumnModified,
 		},
+		Git: GitConfig{
+			ColorEntries: true,
+		},
 	}
 }
-
-// User is the process-wide user configuration loaded at startup.
-var User = Defaults()
 
 // Resolve validates the result after defaults have been applied.
 func (c Config) Resolve() (Config, error) {
@@ -174,14 +183,4 @@ func Load() (Config, error) {
 		return Defaults(), fmt.Errorf("parse config %s: unknown key %q", path, keys[0].String())
 	}
 	return raw.Resolve()
-}
-
-// LoadUser loads the XDG user config and stores it for process-wide use.
-func LoadUser() (Config, error) {
-	cfg, err := Load()
-	if err != nil {
-		cfg = Defaults()
-	}
-	User = cfg
-	return cfg, err
 }

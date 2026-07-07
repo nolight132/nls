@@ -18,6 +18,18 @@ const (
 	KindExecutable
 )
 
+// GitState classifies an entry's git status semantically, independent of
+// the display glyphs in GitStatus.
+type GitState uint8
+
+const (
+	GitStateNone GitState = iota // outside a repo or -g not given
+	GitStateClean
+	GitStateModified // staged or unstaged changes (directories: any changed child)
+	GitStateUntracked
+	GitStateIgnored
+)
+
 // Entry is a single directory listing row.
 type Entry struct {
 	Name          string
@@ -37,6 +49,7 @@ type Entry struct {
 	Owner         string
 	Group         string
 	GitStatus     string
+	GitState      GitState
 }
 
 func formatPermissions(mode fs.FileMode) string {

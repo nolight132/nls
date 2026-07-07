@@ -47,35 +47,31 @@ func TestLoadUserConfigFallsBackOnInvalidConfig(t *testing.T) {
 	if !columnsEqual(got.DefaultColumns, config.Defaults().DefaultColumns) {
 		t.Fatalf("columns = %v, want defaults", got.DefaultColumns)
 	}
-	if !columnsEqual(config.User.DefaultColumns, config.Defaults().DefaultColumns) {
-		t.Fatalf("global columns = %v, want defaults", config.User.DefaultColumns)
-	}
 	if !strings.Contains(errOut.String(), "using defaults") {
 		t.Fatalf("warning = %q, want using defaults", errOut.String())
 	}
 }
 
 func TestUseTableAllowsListingFlagsOnTTY(t *testing.T) {
-	cfg := &Config{Long: true, Recursive: true, SortTime: true, Inode: true}
+	cfg := &Flags{Long: true, Recursive: true, SortTime: true, Inode: true}
 	if !useTable(cfg, true) {
 		t.Fatal("listing flags should keep table output on a TTY")
 	}
 }
 
 func TestUseTableRejectsAlternateOutputShapes(t *testing.T) {
-	for _, cfg := range []*Config{{One: true}, {Commas: true}, {JSON: true}} {
+	for _, cfg := range []*Flags{{One: true}, {Commas: true}, {JSON: true}} {
 		if useTable(cfg, true) {
 			t.Fatalf("%+v should not use table output", cfg)
 		}
 	}
-	if useTable(&Config{}, false) {
+	if useTable(&Flags{}, false) {
 		t.Fatal("non-TTY output should not use table output")
 	}
 }
 
 func TestInteractiveUsesBoundedEstimateWhenConfigEnabled(t *testing.T) {
-	setUserForTest(t, config.Defaults())
-	opts := buildListOptions(&Config{}, true)
+	opts := buildListOptions(&Flags{}, config.Defaults(), true)
 	if opts.EstimateDepth != listing.EstimateDepthBounded {
 		t.Fatalf("estimate depth = %d, want bounded", opts.EstimateDepth)
 	}
@@ -85,8 +81,7 @@ func TestInteractiveUsesBoundedEstimateWhenConfigEnabled(t *testing.T) {
 }
 
 func TestPreciseEnablesExactUnlimitedEstimates(t *testing.T) {
-	setUserForTest(t, config.Defaults())
-	opts := buildListOptions(&Config{Precise: true}, false)
+	opts := buildListOptions(&Flags{Precise: true}, config.Defaults(), false)
 	if !opts.EstimateSizes {
 		t.Fatal("precise should enable size estimation")
 	}
@@ -101,16 +96,34 @@ func TestPreciseEnablesExactUnlimitedEstimates(t *testing.T) {
 func TestInteractiveSkipsEstimateWhenConfigDisabled(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.DirSize.Enabled = false
-	setUserForTest(t, cfg)
-	opts := buildListOptions(&Config{}, true)
+	opts := buildListOptions(&Flags{}, cfg, true)
 	if opts.EstimateSizes {
 		t.Fatal("dir_size.enabled=false should disable default interactive estimation")
 	}
 }
 
+func TestGitStatusComputedForDefaultColoring(t *testing.T) {
+	if !buildListOptions(&Flags{}, config.Defaults(), true).GitStatus {
+		t.Error("interactive colored listing should compute git status for coloring")
+	}
+	if buildListOptions(&Flags{NoColor: true}, config.Defaults(), true).GitStatus {
+		t.Error("--no-color should skip git status without -g")
+	}
+	if buildListOptions(&Flags{}, config.Defaults(), false).GitStatus {
+		t.Error("non-interactive listing should skip git status without -g")
+	}
+	cfg := config.Defaults()
+	cfg.Git.ColorEntries = false
+	if buildListOptions(&Flags{}, cfg, true).GitStatus {
+		t.Error("color_entries=false should skip git status without -g")
+	}
+	if !buildListOptions(&Flags{GitStatus: true}, cfg, false).GitStatus {
+		t.Error("-g should always compute git status")
+	}
+}
+
 func TestBuildColumnsDefaults(t *testing.T) {
-	setUserForTest(t, config.Defaults())
-	cols := buildColumns(&Config{})
+	cols := buildColumns(&Flags{}, config.Defaults())
 	want := []string{"id", "name", "size", "modified"}
 	if len(cols) != len(want) {
 		t.Fatalf("cols = %v, want %v", cols, want)
@@ -130,8 +143,7 @@ func TestBuildColumnsConfigOverridesOrder(t *testing.T) {
 			config.ColumnSize,
 		},
 	}
-	setUserForTest(t, userCfg)
-	cols := buildColumns(&Config{})
+	cols := buildColumns(&Flags{}, userCfg)
 	if cols[0] != "name" || cols[1] != "id" || cols[2] != "size" {
 		t.Fatalf("cols = %v, want [name id size]", cols)
 	}
@@ -141,8 +153,7 @@ func TestBuildColumnsFlagsAppendIfMissing(t *testing.T) {
 	userCfg := config.Config{
 		DefaultColumns: []config.ColumnEntry{config.ColumnName, config.ColumnSize},
 	}
-	setUserForTest(t, userCfg)
-	cols := buildColumns(&Config{Inode: true, Blocks: true, Long: true})
+	cols := buildColumns(&Flags{Inode: true, Blocks: true, Long: true}, userCfg)
 	want := []string{"name", "size", "inode", "blocks", "permissions"}
 	if len(cols) != len(want) {
 		t.Fatalf("cols = %v, want %v", cols, want)
@@ -160,8 +171,7 @@ func TestBuildColumnsFlagsDontDuplicateConfigColumns(t *testing.T) {
 			config.ColumnName, config.ColumnInode, config.ColumnPermissions,
 		},
 	}
-	setUserForTest(t, userCfg)
-	cols := buildColumns(&Config{Inode: true, Long: true})
+	cols := buildColumns(&Flags{Inode: true, Long: true}, userCfg)
 	count := 0
 	for _, c := range cols {
 		if c == "inode" {
@@ -185,23 +195,15 @@ func columnsEqual(a, b []config.ColumnEntry) bool {
 	return true
 }
 
-func setUserForTest(t *testing.T, cfg config.Config) {
-	t.Helper()
-	prev := config.User
-	config.User = cfg
-	t.Cleanup(func() { config.User = prev })
-}
-
 func TestBuildColumnsTimeFlagSwapsModified(t *testing.T) {
-	setUserForTest(t, config.Defaults())
-	cols := buildColumns(&Config{SortAccess: true})
+	cols := buildColumns(&Flags{SortAccess: true}, config.Defaults())
 	want := []string{"id", "name", "size", "accessed"}
 	for i, w := range want {
 		if cols[i] != w {
 			t.Fatalf("cols = %v, want %v", cols, want)
 		}
 	}
-	cols = buildColumns(&Config{SortChange: true})
+	cols = buildColumns(&Flags{SortChange: true}, config.Defaults())
 	if cols[3] != "changed" {
 		t.Fatalf("cols = %v, want changed as time column", cols)
 	}

@@ -7,20 +7,11 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/nolight132/nls/internal/config"
-)
-
-const (
-	maxDirWalkEntries        = 400
-	maxDirWalkDuration       = 50 * time.Millisecond
-	maxDirWorkers            = 3
-	maxDirsPerListingDefault = 6
-	maxListingEstimate       = 120 * time.Millisecond
 )
 
 type dirSizeResult struct {
 	bytes  int64
+	newest time.Time
 	approx bool
 }
 
@@ -32,16 +23,16 @@ type dirSizeCaps struct {
 	MaxDepth          int
 }
 
-func dirSizeCapsFor(depth int, precise bool) dirSizeCaps {
-	if precise {
+func dirSizeCapsFor(opts ListOptions) dirSizeCaps {
+	if opts.Precise {
 		return dirSizeCaps{}
 	}
-	if depth == EstimateDepthMax {
+	if opts.EstimateDepth == EstimateDepthMax {
 		return dirSizeCaps{MaxWalkEntries: 200000, MaxDirsPerListing: 50}
 	}
 
-	caps := dirSizeCaps{MaxDepth: config.User.DirSize.DefaultDepth}
-	switch strings.ToLower(strings.TrimSpace(config.User.DirSize.Timing)) {
+	caps := dirSizeCaps{MaxDepth: opts.DirSizeDepth}
+	switch strings.ToLower(strings.TrimSpace(opts.DirSizeTiming)) {
 	case "unlimited":
 		return caps
 	case "strict":
@@ -55,25 +46,26 @@ func dirSizeCapsFor(depth int, precise bool) dirSizeCaps {
 		caps.MaxWalkEntries = 2000
 		caps.MaxDirsPerListing = 12
 	default:
-		caps.WalkDuration = maxDirWalkDuration
-		caps.ListingDuration = maxListingEstimate
-		caps.MaxWalkEntries = maxDirWalkEntries
-		caps.MaxDirsPerListing = maxDirsPerListingDefault
+		caps.WalkDuration = 50 * time.Millisecond
+		caps.ListingDuration = 120 * time.Millisecond
+		caps.MaxWalkEntries = 400
+		caps.MaxDirsPerListing = 6
 	}
 	return caps
 }
 
 // estimateDirectorySizes fills Size for directory entries by summing file contents.
-func estimateDirectorySizes(parent string, entries []Entry, depth int, precise bool) {
+func estimateDirectorySizes(parent string, entries []Entry, opts ListOptions) {
 	type job struct {
 		idx  int
 		path string
 	}
 
+	depth := opts.EstimateDepth
 	bounded := depth == EstimateDepthBounded
 	maxMode := depth == EstimateDepthMax
 	maxWalkDepth := max(depth, 0)
-	caps := dirSizeCapsFor(depth, precise)
+	caps := dirSizeCapsFor(opts)
 	maxDirs := caps.MaxDirsPerListing
 	maxWalkEntries := caps.MaxWalkEntries
 	walkBudget := caps.WalkDuration
@@ -103,7 +95,7 @@ func estimateDirectorySizes(parent string, entries []Entry, depth int, precise b
 	if bounded && listingBudget > 0 {
 		listingDeadline = time.Now().Add(listingBudget)
 	}
-	workers := min(len(jobs), maxDirWorkers)
+	workers := min(len(jobs), 3)
 
 	ch := make(chan job)
 	var wg sync.WaitGroup
@@ -118,6 +110,9 @@ func estimateDirectorySizes(parent string, entries []Entry, depth int, precise b
 				result := sumDirSize(j.path, listingDeadline, bounded, maxWalkDepth, boundedMaxDepth, walkBudget, maxWalkEntries)
 				entries[j.idx].Size = result.bytes
 				entries[j.idx].SizeApprox = result.approx
+				if result.newest.After(entries[j.idx].Modified) {
+					entries[j.idx].Modified = result.newest
+				}
 			}
 		}()
 	}
@@ -140,6 +135,7 @@ func sumDirSize(root string, listingDeadline time.Time, bounded bool, maxWalkDep
 
 	var total int64
 	var count int
+	var newest time.Time
 	truncated := false
 	root = filepath.Clean(root)
 
@@ -171,6 +167,9 @@ func sumDirSize(root string, listingDeadline time.Time, bounded bool, maxWalkDep
 		count++
 
 		if d.IsDir() {
+			if info, err := d.Info(); err == nil && info.ModTime().After(newest) {
+				newest = info.ModTime()
+			}
 			return nil
 		}
 		info, err := os.Lstat(path)
@@ -178,10 +177,13 @@ func sumDirSize(root string, listingDeadline time.Time, bounded bool, maxWalkDep
 			return nil
 		}
 		total += diskUsageOf(info)
+		if info.ModTime().After(newest) {
+			newest = info.ModTime()
+		}
 		return nil
 	})
 
-	return dirSizeResult{bytes: total, approx: truncated}
+	return dirSizeResult{bytes: total, newest: newest, approx: truncated}
 }
 
 func treeDepth(root, path string) int {

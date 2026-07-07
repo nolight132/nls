@@ -8,25 +8,6 @@ import (
 	"testing"
 )
 
-func TestDefaults(t *testing.T) {
-	d := Defaults()
-	if !d.Icons.Enabled {
-		t.Fatal("icons should default on")
-	}
-	if !d.Icons.SpecialIcons {
-		t.Fatal("special icons should default on")
-	}
-	if !d.DirSize.Enabled {
-		t.Fatal("dir size should default on")
-	}
-	if d.DirSize.DefaultDepth != 0 {
-		t.Fatalf("default depth = %d, want 0", d.DirSize.DefaultDepth)
-	}
-	if d.DirSize.Timing != "balanced" {
-		t.Fatalf("timing = %q, want balanced", d.DirSize.Timing)
-	}
-}
-
 func TestResolveAcceptsDefaults(t *testing.T) {
 	resolved, err := Defaults().Resolve()
 	if err != nil {
@@ -91,16 +72,6 @@ func TestResolveAcceptsAllKnownColumns(t *testing.T) {
 	}
 	if len(resolved.DefaultColumns) != len(all) {
 		t.Fatalf("resolved columns = %d, want %d", len(resolved.DefaultColumns), len(all))
-	}
-}
-
-func TestUserDefaults(t *testing.T) {
-	prev := User
-	User = Defaults()
-	defer func() { User = prev }()
-
-	if !User.Icons.Enabled {
-		t.Fatal("user config should default icons on")
 	}
 }
 

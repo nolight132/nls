@@ -27,9 +27,13 @@ type tableColumn struct {
 	centerHeader bool
 	// flex marks the column that shrinks when the table exceeds the
 	// terminal width.
-	flex   bool
-	width  int
-	render func(e listing.Entry, idx int, ctx renderCtx) string
+	flex  bool
+	width int
+	// subDivider is the display offset of a vertical rule inside the
+	// column's cells (the git status separator); -1 when the column has
+	// none. Horizontal borders hook into it with ┬ and ┴.
+	subDivider int
+	render     func(e listing.Entry, idx int, ctx renderCtx) string
 }
 
 type renderCtx struct {
@@ -54,7 +58,11 @@ var columnRegistry = map[string]struct {
 	"name": {
 		header: "name", align: alignLeft, centerHeader: true,
 		render: func(e listing.Entry, _ int, ctx renderCtx) string {
-			return ctx.styles.Name(tableDisplayName(e, ctx.opts), e.Kind)
+			name := tableDisplayName(e, ctx.opts)
+			if ctx.opts.GitColorEntries {
+				return ctx.styles.NameGit(name, e.Kind, e.GitState)
+			}
+			return ctx.styles.Name(name, e.Kind)
 		},
 	},
 	"type": {
@@ -123,6 +131,12 @@ var columnRegistry = map[string]struct {
 			return strconv.FormatInt(e.Blocks, 10)
 		},
 	},
+	"git": {
+		header: "git", align: alignLeft, centerHeader: false,
+		render: func(e listing.Entry, _ int, _ renderCtx) string {
+			return e.GitStatus
+		},
+	},
 }
 
 func buildTableColumns(opts RenderOptions, styles *termcolor.Style) []tableColumn {
@@ -133,11 +147,16 @@ func buildTableColumns(opts RenderOptions, styles *termcolor.Style) []tableColum
 		if !ok {
 			continue
 		}
+		subDivider := -1
+		if name == "git" && listing.GitStatusSeparator == '│' {
+			subDivider = 1
+		}
 		cols = append(cols, tableColumn{
 			header:       styles.Header(spec.header),
 			align:        spec.align,
 			centerHeader: spec.centerHeader,
 			flex:         name == "name",
+			subDivider:   subDivider,
 			render:       spec.render,
 		})
 	}
@@ -179,7 +198,7 @@ func renderTable(w io.Writer, entries []listing.Entry, opts RenderOptions) error
 
 func renderEmptyTable(w io.Writer, styles *termcolor.Style) {
 	var b strings.Builder
-	emptyCols := []tableColumn{{header: "", width: 10}}
+	emptyCols := []tableColumn{{header: "", width: 10, subDivider: -1}}
 	emptyMessage := styles.Empty("no entries")
 	writeBorderTop(&b, emptyCols)
 	writeDataRow(&b, emptyCols, []string{emptyMessage})
@@ -285,7 +304,9 @@ func writeBorderMid(b *strings.Builder, cols []tableColumn) {
 		if i > 0 {
 			b.WriteString("┼")
 		}
-		b.WriteString(strings.Repeat("─", col.width+2))
+		// ┬ starts the sub-divider here rather than in the top border so
+		// the header text above it stays unbroken.
+		b.WriteString(borderSegment(col, "┬"))
 	}
 	b.WriteString("┤\n")
 }
@@ -296,9 +317,19 @@ func writeBorderBottom(b *strings.Builder, cols []tableColumn) {
 		if i > 0 {
 			b.WriteString("┴")
 		}
-		b.WriteString(strings.Repeat("─", col.width+2))
+		b.WriteString(borderSegment(col, "┴"))
 	}
 	b.WriteString("╯\n")
+}
+
+// borderSegment draws a column's stretch of a horizontal border, hooking
+// in the cell-internal divider with the given junction when present.
+func borderSegment(col tableColumn, junction string) string {
+	at := 1 + col.subDivider
+	if col.subDivider < 0 || at >= col.width+2 {
+		return strings.Repeat("─", col.width+2)
+	}
+	return strings.Repeat("─", at) + junction + strings.Repeat("─", col.width+1-at)
 }
 
 func writeHeaderRow(b *strings.Builder, cols []tableColumn) {

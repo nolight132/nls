@@ -21,8 +21,8 @@ import (
 // ErrReported signals a nonzero exit for errors already written to stderr.
 var ErrReported = errors.New("errors already reported")
 
-// Config holds parsed CLI flags.
-type Config struct {
+// Flags holds parsed CLI flags.
+type Flags struct {
 	All         bool
 	AlmostAll   bool
 	Long        bool
@@ -51,11 +51,12 @@ type Config struct {
 	JSON        bool
 	Precise     bool
 	Paths       []string
+	GitStatus   bool
 }
 
 // Root returns the root cobra command.
 func Root() *cobra.Command {
-	cfg := &Config{}
+	cfg := &Flags{}
 	var unsortedF bool
 
 	cmd := &cobra.Command{
@@ -106,6 +107,7 @@ func Root() *cobra.Command {
 	cmd.Flags().BoolVar(&cfg.NoColor, "no-color", false, "disable colors")
 	cmd.Flags().BoolVar(&cfg.JSON, "json", false, "output JSON")
 	cmd.Flags().BoolVarP(&cfg.Precise, "precise", "P", false, "compute exact directory sizes without depth, time, or entry limits")
+	cmd.Flags().BoolVarP(&cfg.GitStatus, "git-status", "g", false, "show git status")
 	cmd.Flags().BoolP("version", "", false, "version for nls")
 	configureHelp(cmd)
 
@@ -118,6 +120,7 @@ func configureHelp(cmd *cobra.Command) {
 		"time", "access-time", "ctime", "size", "extension", "unsorted", "fast",
 		"directory", "classify", "slash", "ignore-backups", "dereference",
 		"quote-name", "group-directories-first", "inode", "size-blocks",
+		"git-status",
 	)
 	markGroup(cmd, "Plain-output layout flags", "one", "comma")
 	markGroup(cmd, "nls presentation flags", "json", "precise", "no-icons", "no-color", "help", "version")
@@ -189,8 +192,8 @@ func formatFlag(flag *pflag.Flag) string {
 	return b.String()
 }
 
-func buildListOptions(cfg *Config, interactive bool) listing.ListOptions {
-	estimateSizes := cfg.Precise || (interactive && config.User.DirSize.Enabled)
+func buildListOptions(cfg *Flags, userCfg config.Config, interactive bool) listing.ListOptions {
+	estimateSizes := cfg.Precise || (interactive && userCfg.DirSize.Enabled)
 	estimateDepth := 0
 	if cfg.Precise {
 		estimateDepth = listing.EstimateDepthMax
@@ -198,7 +201,15 @@ func buildListOptions(cfg *Config, interactive bool) listing.ListOptions {
 		estimateDepth = listing.EstimateDepthBounded
 	}
 
+	// Git status is computed when the -g column asks for it, or when
+	// default git coloring needs the data on a colored interactive
+	// listing. The column itself still only renders with -g.
+	gitStatus := cfg.GitStatus ||
+		(interactive && !cfg.NoColor && userCfg.Git.ColorEntries)
+
 	return listing.ListOptions{
+		DirSizeDepth:  userCfg.DirSize.DefaultDepth,
+		DirSizeTiming: userCfg.DirSize.Timing,
 		All:           cfg.All,
 		AlmostAll:     cfg.AlmostAll,
 		IgnoreBackups: cfg.IgnoreBack,
@@ -216,6 +227,7 @@ func buildListOptions(cfg *Config, interactive bool) listing.ListOptions {
 		QuoteNames:    cfg.QuoteName,
 		Commas:        cfg.Commas,
 		Sort:          buildSort(cfg),
+		GitStatus:     gitStatus,
 	}
 }
 
@@ -232,7 +244,7 @@ func terminalWidth(interactive bool) int {
 	return width
 }
 
-func run(cfg *Config) error {
+func run(cfg *Flags) error {
 	userCfg := loadUserConfig(os.Stderr)
 
 	paths := cfg.Paths
@@ -258,24 +270,25 @@ func run(cfg *Config) error {
 		iconSet = icons.Resolve(cfg.NoIcons, userCfg.Icons.Enabled, userCfg.Icons.SpecialIcons)
 	}
 
-	listOpts := buildListOptions(cfg, interactive)
+	listOpts := buildListOptions(cfg, userCfg, interactive)
 
 	outOpts := output.RenderOptions{
-		Human:      cfg.Human || interactive,
-		Long:       cfg.Long,
-		JSON:       cfg.JSON,
-		Color:      colorEnabled,
-		IconSet:    iconSet,
-		IsTTY:      isTTY,
-		Plain:      plainMode(cfg, isTTY),
-		Classify:   cfg.Classify,
-		DirSlash:   cfg.DirSlash,
-		QuoteName:  cfg.QuoteName,
-		ShowInode:  cfg.Inode,
-		ShowBlocks: cfg.Blocks,
-		UseTable:   interactive,
-		Width:      terminalWidth(interactive),
-		Columns:    buildColumns(cfg),
+		Human:           cfg.Human || interactive,
+		Long:            cfg.Long,
+		JSON:            cfg.JSON,
+		Color:           colorEnabled,
+		IconSet:         iconSet,
+		IsTTY:           isTTY,
+		Plain:           plainMode(cfg),
+		Classify:        cfg.Classify,
+		DirSlash:        cfg.DirSlash,
+		QuoteName:       cfg.QuoteName,
+		ShowInode:       cfg.Inode,
+		ShowBlocks:      cfg.Blocks,
+		UseTable:        interactive,
+		Width:           terminalWidth(interactive),
+		Columns:         buildColumns(cfg, userCfg),
+		GitColorEntries: userCfg.Git.ColorEntries,
 	}
 
 	blocks, errs := listing.List(expanded, listOpts)
@@ -293,17 +306,17 @@ func run(cfg *Config) error {
 }
 
 func loadUserConfig(w io.Writer) config.Config {
-	userCfg, err := config.LoadUser()
+	userCfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(w, "nls: warning: %v; using defaults\n", err)
+		return config.Defaults()
 	}
 	return userCfg
 }
 
-func buildColumns(cfg *Config) []string {
-	userCfg := config.User
-	cols := make([]string, 0, len(userCfg.DefaultColumns)+3)
-	seen := make(map[string]bool, len(userCfg.DefaultColumns)+3)
+func buildColumns(cfg *Flags, userCfg config.Config) []string {
+	cols := make([]string, 0, len(userCfg.DefaultColumns)+4)
+	seen := make(map[string]bool, len(userCfg.DefaultColumns)+4)
 	for _, c := range userCfg.DefaultColumns {
 		s := string(c)
 		if s == string(config.ColumnModified) {
@@ -323,10 +336,13 @@ func buildColumns(cfg *Config) []string {
 	if cfg.Long && !seen[string(config.ColumnPermissions)] {
 		cols = append(cols, string(config.ColumnPermissions))
 	}
+	if cfg.GitStatus && !seen[string(config.ColumnGitStatus)] {
+		cols = append(cols, string(config.ColumnGitStatus))
+	}
 	return cols
 }
 
-func buildSort(cfg *Config) listing.SortOptions {
+func buildSort(cfg *Flags) listing.SortOptions {
 	sort := listing.SortOptions{
 		Reverse:   cfg.Reverse,
 		DirsFirst: cfg.DirsFirst,
@@ -347,7 +363,7 @@ func buildSort(cfg *Config) listing.SortOptions {
 	return sort
 }
 
-func timeField(cfg *Config) listing.TimeField {
+func timeField(cfg *Flags) listing.TimeField {
 	switch {
 	case cfg.SortAccess:
 		return listing.TimeAccessed
@@ -359,7 +375,7 @@ func timeField(cfg *Config) listing.TimeField {
 }
 
 // timeColumn maps -u/-c to the column showing the sorted timestamp.
-func timeColumn(cfg *Config) string {
+func timeColumn(cfg *Flags) string {
 	switch timeField(cfg) {
 	case listing.TimeAccessed:
 		return string(config.ColumnAccessed)
@@ -370,7 +386,7 @@ func timeColumn(cfg *Config) string {
 	}
 }
 
-func plainMode(cfg *Config, isTTY bool) output.PlainMode {
+func plainMode(cfg *Flags) output.PlainMode {
 	switch {
 	case cfg.Commas:
 		return output.PlainCommas
@@ -382,7 +398,7 @@ func plainMode(cfg *Config, isTTY bool) output.PlainMode {
 }
 
 // useTable is true on a TTY unless the user asks for a different output shape.
-func useTable(cfg *Config, isTTY bool) bool {
+func useTable(cfg *Flags, isTTY bool) bool {
 	if !isTTY || cfg.JSON {
 		return false
 	}

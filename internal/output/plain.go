@@ -27,7 +27,9 @@ func renderPlain(w io.Writer, blocks []listing.Block, opts RenderOptions) error 
 				return err
 			}
 		}
-		if err := renderPlainBlock(w, block.Entries, opts, now); err != nil {
+		blockOpts := opts
+		blockOpts.Columns = columnsForBlock(block, opts.Columns)
+		if err := renderPlainBlock(w, block.Entries, blockOpts, now); err != nil {
 			return err
 		}
 	}

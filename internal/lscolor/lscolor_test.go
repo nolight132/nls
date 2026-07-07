@@ -53,3 +53,11 @@ func TestRespectsLS_COLORSOverride(t *testing.T) {
 		t.Fatalf("md: got %q", got)
 	}
 }
+
+func TestLnTargetKeywordIsNotEmittedRaw(t *testing.T) {
+	s := parse("ln=target:di=34")
+	got := s.Colorize("mylink", listing.KindSymlink)
+	if got != "mylink" {
+		t.Fatalf("got %q, want plain name", got)
+	}
+}

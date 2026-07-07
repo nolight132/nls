@@ -49,10 +49,22 @@ func parse(raw string) *Styler {
 // Colorize wraps a filename using LS_COLORS rules.
 func (s *Styler) Colorize(name string, kind listing.Kind) string {
 	seq := s.matchSequence(name, kind)
-	if seq == "" || seq == "0" {
+	if seq == "" || seq == "0" || !validSequence(seq) {
 		return name
 	}
 	return "\x1b[" + seq + "m" + name + "\x1b[0m"
+}
+
+// validSequence rejects values that are not SGR parameters, like the
+// dircolors keyword ln=target, so they never reach the terminal raw.
+func validSequence(seq string) bool {
+	for i := 0; i < len(seq); i++ {
+		c := seq[i]
+		if (c < '0' || c > '9') && c != ';' {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Styler) matchSequence(name string, kind listing.Kind) string {

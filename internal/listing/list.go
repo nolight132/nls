@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 )
 
 const (
@@ -121,13 +122,9 @@ func sortOperands(operands []operand, sort SortOptions) {
 		return
 	}
 	names := newNameComparer()
-	for i := 1; i < len(operands); i++ {
-		j := i
-		for j > 0 && compare(operands[j-1].entry, operands[j].entry, sort, names) > 0 {
-			operands[j-1], operands[j] = operands[j], operands[j-1]
-			j--
-		}
-	}
+	slices.SortStableFunc(operands, func(a, b operand) int {
+		return compare(a.entry, b.entry, sort, names)
+	})
 }
 
 func listRecursive(dir string, opts ListOptions) ([]Block, error) {

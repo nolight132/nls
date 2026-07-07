@@ -2,6 +2,7 @@ package listing
 
 import (
 	"os"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -43,14 +44,9 @@ func sortEntries(entries []Entry, sort SortOptions) {
 		return
 	}
 	names := newNameComparer()
-
-	for i := 1; i < len(entries); i++ {
-		j := i
-		for j > 0 && compare(entries[j-1], entries[j], sort, names) > 0 {
-			entries[j-1], entries[j] = entries[j], entries[j-1]
-			j--
-		}
-	}
+	slices.SortStableFunc(entries, func(a, b Entry) int {
+		return compare(a, b, sort, names)
+	})
 }
 
 func compare(a, b Entry, sort SortOptions, names nameComparer) int {

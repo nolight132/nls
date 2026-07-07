@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/nolight132/nls/internal/format"
 	"github.com/nolight132/nls/internal/icons"
@@ -232,6 +233,20 @@ func minInt(values ...int) int {
 		}
 	}
 	return min
+}
+
+// sanitizeName hides control characters on terminals, where a crafted
+// filename could break table layout or inject escape sequences.
+func sanitizeName(s string) string {
+	if !strings.ContainsFunc(s, unicode.IsControl) {
+		return s
+	}
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return '?'
+		}
+		return r
+	}, s)
 }
 
 func sentenceCase(s string) string {

@@ -56,7 +56,11 @@ func renderPlainBlock(w io.Writer, entries []listing.Entry, opts RenderOptions, 
 }
 
 func plainName(e listing.Entry, opts RenderOptions) string {
-	return listing.DisplayName(e, opts.Classify, opts.DirSlash, opts.QuoteName, false)
+	name := listing.DisplayName(e, opts.Classify, opts.DirSlash, opts.QuoteName, false)
+	if opts.IsTTY {
+		name = sanitizeName(name)
+	}
+	return name
 }
 
 // renderPlainColumns renders the same columns the table would show, aligned

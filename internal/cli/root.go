@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,6 +16,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
+
+// ErrReported signals a nonzero exit for errors already written to stderr.
+var ErrReported = errors.New("errors already reported")
 
 // Config holds parsed CLI flags.
 type Config struct {
@@ -258,11 +262,18 @@ func run(cfg *Config) error {
 		Columns:    buildColumns(cfg),
 	}
 
-	blocks, err := listing.List(expanded, listOpts)
-	if err != nil {
+	blocks, errs := listing.List(expanded, listOpts)
+	suggest := output.StderrIsTTY()
+	for _, e := range errs {
+		output.WriteError(e, suggest)
+	}
+	if err := output.Render(os.Stdout, blocks, outOpts); err != nil {
 		return err
 	}
-	return output.Render(os.Stdout, blocks, outOpts)
+	if len(errs) > 0 {
+		return ErrReported
+	}
+	return nil
 }
 
 func loadUserConfig(w io.Writer) config.Config {

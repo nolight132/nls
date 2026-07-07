@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 
 	"github.com/nolight132/nls/internal/cli"
@@ -9,7 +10,9 @@ import (
 
 func main() {
 	if err := cli.Root().Execute(); err != nil {
-		output.WriteError(err, output.StderrIsTTY())
+		if !errors.Is(err, cli.ErrReported) {
+			output.WriteError(err, output.StderrIsTTY())
+		}
 		os.Exit(1)
 	}
 }

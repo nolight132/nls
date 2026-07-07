@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.1
+
+- Fixed directory size estimation silently skipping directories beyond the per-listing cap or time budget: skipped directories showed their bare stat size (e.g. `4.0 KiB`) as if it were the content size. They are now marked with the `>` lower-bound prefix, and the default per-listing cap was raised from 6 to 16 directories so typical listings get fully estimated within the existing time budget.
+
 ## v0.5.0
 
 - Added `-g`/`--git-status` for a `git` table column showing per-entry status as `staging│worktree` (`?│?` untracked, ` │M` modified, `I│ ` ignored). Directories aggregate the status of their contents. The column can be enabled by default via `default_columns = ["git"]` and hides itself outside git repositories.

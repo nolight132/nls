@@ -15,7 +15,7 @@ default_columns = [
     "modified",
 ]
 
-# Enable Nerd Font icons by default. --no-icons and NLS_ICONS still override.
+# Enable Nerd Font icons by default. --no-icons still overrides.
 [icons]
 enabled = true
 

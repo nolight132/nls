@@ -49,7 +49,7 @@ func dirSizeCapsFor(opts ListOptions) dirSizeCaps {
 		caps.WalkDuration = 50 * time.Millisecond
 		caps.ListingDuration = 120 * time.Millisecond
 		caps.MaxWalkEntries = 400
-		caps.MaxDirsPerListing = 6
+		caps.MaxDirsPerListing = 16
 	}
 	return caps
 }
@@ -83,7 +83,9 @@ func estimateDirectorySizes(parent string, entries []Entry, opts ListOptions) {
 			continue
 		}
 		if (bounded || maxMode) && maxDirs > 0 && len(jobs) >= maxDirs {
-			break
+			// Not walked: stat size is only a lower bound, flag it as such.
+			entries[i].SizeApprox = true
+			continue
 		}
 		jobs = append(jobs, job{idx: i, path: filepath.Join(parent, e.Name)})
 	}
@@ -105,6 +107,7 @@ func estimateDirectorySizes(parent string, entries []Entry, opts ListOptions) {
 			defer wg.Done()
 			for j := range ch {
 				if bounded && !listingDeadline.IsZero() && time.Now().After(listingDeadline) {
+					entries[j.idx].SizeApprox = true
 					continue
 				}
 				result := sumDirSize(j.path, listingDeadline, bounded, maxWalkDepth, boundedMaxDepth, walkBudget, maxWalkEntries)

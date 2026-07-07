@@ -162,6 +162,36 @@ func TestSumDirSizeMarksApproxWhenEntryCapExceeded(t *testing.T) {
 	}
 }
 
+func TestEstimateDirectorySizesMarksSkippedDirsApprox(t *testing.T) {
+	dir := t.TempDir()
+	// Strict timing caps MaxDirsPerListing at 4; dirs 5-6 are never
+	// walked and must be flagged so their stat size reads as a lower bound.
+	entries := make([]Entry, 0, 6)
+	for i := range 6 {
+		name := "d" + strconv.Itoa(i)
+		sub := filepath.Join(dir, name)
+		if err := os.Mkdir(sub, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(sub, "a.txt"), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		entries = append(entries, Entry{Name: name, Kind: KindDirectory})
+	}
+
+	estimateDirectorySizes(dir, entries, ListOptions{
+		EstimateSizes: true,
+		EstimateDepth: EstimateDepthBounded,
+		DirSizeTiming: "strict",
+	})
+
+	for _, e := range entries[4:] {
+		if !e.SizeApprox {
+			t.Fatalf("%s skipped by dir cap, should be marked approx", e.Name)
+		}
+	}
+}
+
 func TestDirSizeCapsUnlimitedTimingHasNoLimits(t *testing.T) {
 	caps := dirSizeCapsFor(ListOptions{EstimateDepth: EstimateDepthBounded, DirSizeTiming: "unlimited"})
 	if caps != (dirSizeCaps{}) {

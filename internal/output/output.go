@@ -40,7 +40,6 @@ type RenderOptions struct {
 	QuoteName  bool
 	ShowInode  bool
 	ShowBlocks bool
-	TimeField  listing.TimeField
 	UseTable   bool
 	// Columns controls which columns appear in table mode and their order.
 	// Empty falls back to the built-in default set.

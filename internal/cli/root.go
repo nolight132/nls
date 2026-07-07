@@ -257,7 +257,6 @@ func run(cfg *Config) error {
 		QuoteName:  cfg.QuoteName,
 		ShowInode:  cfg.Inode,
 		ShowBlocks: cfg.Blocks,
-		TimeField:  timeField(cfg),
 		UseTable:   interactive,
 		Columns:    buildColumns(cfg),
 	}
@@ -290,6 +289,9 @@ func buildColumns(cfg *Config) []string {
 	seen := make(map[string]bool, len(userCfg.DefaultColumns)+3)
 	for _, c := range userCfg.DefaultColumns {
 		s := string(c)
+		if s == string(config.ColumnModified) {
+			s = timeColumn(cfg)
+		}
 		if !seen[s] {
 			cols = append(cols, s)
 			seen[s] = true
@@ -336,6 +338,18 @@ func timeField(cfg *Config) listing.TimeField {
 		return listing.TimeChanged
 	default:
 		return listing.TimeModified
+	}
+}
+
+// timeColumn maps -u/-c to the column showing the sorted timestamp.
+func timeColumn(cfg *Config) string {
+	switch timeField(cfg) {
+	case listing.TimeAccessed:
+		return string(config.ColumnAccessed)
+	case listing.TimeChanged:
+		return string(config.ColumnChanged)
+	default:
+		return string(config.ColumnModified)
 	}
 }
 

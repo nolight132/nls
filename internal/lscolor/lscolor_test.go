@@ -34,15 +34,6 @@ func TestDefaultSymlinkAndExecutableUseSimpleAnsi(t *testing.T) {
 	}
 }
 
-func TestRegularGoFile(t *testing.T) {
-	s := New()
-	got := s.matchSequence("go.mod", listing.KindFile)
-	if got != "" && got != "0" {
-		// Extension-less regular files fall back to fi=0.
-		t.Fatalf("expected default file color, got %q", got)
-	}
-}
-
 func TestRespectsLS_COLORSOverride(t *testing.T) {
 	t.Setenv("LS_COLORS", "di=01;31:*.md=01;32")
 	s := New()

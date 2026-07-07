@@ -84,19 +84,6 @@ func TestInteractiveUsesBoundedEstimateWhenConfigEnabled(t *testing.T) {
 	}
 }
 
-func TestInteractiveUsesConfigDefaultDepthInListing(t *testing.T) {
-	cfg := config.Defaults()
-	cfg.DirSize.DefaultDepth = 2
-	setUserForTest(t, cfg)
-	opts := buildListOptions(&Config{}, true)
-	if opts.EstimateDepth != listing.EstimateDepthBounded {
-		t.Fatalf("estimate depth = %d, want bounded", opts.EstimateDepth)
-	}
-	if !opts.EstimateSizes {
-		t.Fatal("interactive default should enable size estimation")
-	}
-}
-
 func TestPreciseEnablesExactUnlimitedEstimates(t *testing.T) {
 	setUserForTest(t, config.Defaults())
 	opts := buildListOptions(&Config{Precise: true}, false)

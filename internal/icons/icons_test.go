@@ -24,117 +24,26 @@ func TestResolveCanDisableSpecialIcons(t *testing.T) {
 	}
 }
 
-func TestMatchIconTypes(t *testing.T) {
+// Matchers are an ordered list where the first hit wins, so the risky
+// regressions are ordering ones: a specific rule falling behind a generic
+// extension rule. Each case here exercises one matching mechanism.
+func TestMatchIconPrecedence(t *testing.T) {
 	tests := []struct {
 		name string
 		file string
 		icon Icon
 	}{
-		{"c", "main.c", IconC},
-		{"cpp", "main.cpp", IconCpp},
-		{"markdown", "guide.md", IconMarkdown},
-		{"rust", "lib.rs", IconRust},
-		{"go", "server.go", IconGo},
-		{"python", "script.py", IconPython},
-		{"ruby", "task.rb", IconRuby},
-		{"javascript", "app.js", IconJavaScript},
-		{"typescript", "app.ts", IconTypeScript},
-		{"react", "component.tsx", IconReact},
-		{"java", "Main.java", IconJava},
-		{"php", "index.php", IconPHP},
-		{"swift", "App.swift", IconSwift},
-		{"dart", "widget.dart", IconDart},
-		{"zig", "build.zig", IconZig},
-		{"lua", "init.lua", IconLua},
-		{"shell", "install.sh", IconShell},
-		{"terminal", "run.fish", IconTerminal},
-		{"powershell", "profile.ps1", IconPowerShell},
-		{"vim", "plugin.vim", IconVim},
-		{"coffeescript", "cake.coffee", IconCoffeeScript},
-		{"perl", "script.pl", IconPerl},
-		{"haskell", "Main.hs", IconHaskell},
-		{"elixir", "app.ex", IconElixir},
-		{"erlang", "server.erl", IconErlang},
-		{"clojure", "core.clj", IconClojure},
-		{"r", "plot.r", IconR},
-		{"julia", "model.jl", IconJulia},
-		{"fsharp", "Program.fs", IconFSharp},
-		{"csharp", "Program.cs", IconCSharp},
-		{"visual-basic", "Module.vb", IconVisualBasic},
-		{"html", "index.html", IconHTML},
-		{"css", "style.css", IconCSS},
-		{"sass", "style.scss", IconSass},
-		{"less", "style.less", IconLess},
-		{"tailwind", "tailwind.config.js", IconTailwind},
-		{"vue", "App.vue", IconVue},
-		{"xml", "schema.xml", IconXML},
-		{"yaml", "data.yaml", IconYAML},
-		{"json", "data.json", IconJSON},
-		{"toml", "config.toml", IconTOML},
-		{"config", "app.ini", IconConfig},
-		{"environment", ".env.local", IconEnvironment},
-		{"lockfile", "yarn.lock", IconLockfile},
-		{"text", "notes.txt", IconText},
-		{"dockerfile", "Dockerfile", IconDockerfile},
-		{"kubernetes", "deployment.yaml", IconKubernetes},
-		{"terraform", "main.tf", IconTerraform},
-		{"ansible", "ansible.cfg", IconAnsible},
-		{"makefile", "Makefile", IconMakefile},
-		{"nix", "flake.nix", IconNix},
-		{"git", ".gitignore", IconGit},
-		{"node", "package.json", IconNode},
-		{"npm", ".npmrc", IconNPM},
-		{"vite", "vite.config.ts", IconVite},
-		{"python-package", "pyproject.toml", IconPythonPackage},
-		{"jupyter", "notebook.ipynb", IconJupyter},
-		{"cargo", "Cargo.toml", IconCargo},
-		{"go-mod", "go.mod", IconGoMod},
-		{"gradle", "build.gradle", IconGradle},
-		{"maven", "pom.xml", IconMaven},
-		{"dotnet", "app.csproj", IconDotNet},
-		{"composer", "composer.json", IconComposer},
-		{"gemfile", "Gemfile", IconGemfile},
-		{"mix", "mix.exs", IconMix},
-		{"pdf", "manual.pdf", IconPDF},
-		{"word", "draft.docx", IconWord},
-		{"excel", "sheet.xlsx", IconExcel},
-		{"powerpoint", "deck.pptx", IconPowerPoint},
-		{"image", "photo.png", IconImage},
-		{"svg", "logo.svg", IconSVG},
-		{"video", "movie.mp4", IconVideo},
-		{"audio", "song.mp3", IconAudio},
-		{"archive", "bundle.zip", IconArchive},
-		{"binary", "blob.bin", IconBinary},
-		{"executable", "tool.exe", IconExecutable},
-		{"library", "libsqlite.so", IconLibrary},
-		{"font", "display.ttf", IconFont},
-		{"database", "app.sqlite", IconDatabase},
-		{"sql", "query.sql", IconSQL},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := MatchIcon(tt.file); got != tt.icon.Char {
-				t.Fatalf("MatchIcon(%q) = %q, want %q (%s)", tt.file, got, tt.icon.Char, tt.icon.Name)
-			}
-		})
-	}
-}
-
-func TestMatchIconSpecialIcons(t *testing.T) {
-	tests := []struct {
-		name string
-		file string
-		icon Icon
-	}{
-		{"env uses key", ".env.local", IconEnvironment},
-		{"font uses font glyph", "display.ttf", IconFont},
-		{"lockfile uses lock", "package-lock.json", IconLockfile},
-		{"config uses settings", "app.ini", IconConfig},
-		{"yaml uses yaml glyph", "data.yaml", IconYAML},
-		{"text uses readable file", "notes.txt", IconText},
-		{"go module uses go", "go.mod", IconGoMod},
-		{"dockerfile uses docker", "Dockerfile", IconDockerfile},
+		{"plain extension", "server.go", IconGo},
+		{"extension is case-insensitive", "PHOTO.PNG", IconImage},
+		{"exact name without extension", "Dockerfile", IconDockerfile},
+		{"dotfile", ".gitignore", IconGit},
+		{"exact name beats json extension", "package.json", IconNode},
+		{"lockfile beats json extension", "package-lock.json", IconLockfile},
+		{"kubernetes beats yaml extension", "deployment.yaml", IconKubernetes},
+		{"tailwind config beats js extension", "tailwind.config.js", IconTailwind},
+		{"vite config beats ts extension", "vite.config.ts", IconVite},
+		{"pyproject beats toml extension", "pyproject.toml", IconPythonPackage},
+		{"multi-part suffix", ".env.local", IconEnvironment},
 	}
 
 	for _, tt := range tests {

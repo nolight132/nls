@@ -76,14 +76,28 @@ func TestRecursiveAllSkipsDotEntries(t *testing.T) {
 }
 
 func TestFormatPermissions(t *testing.T) {
-	got := formatPermissions(0o755)
-	if got != "-rwxr-xr-x" {
-		t.Fatalf("got %q", got)
+	cases := []struct {
+		mode os.FileMode
+		want string
+	}{
+		{0o755, "-rwxr-xr-x"},
+		{os.ModeDir | 0o755, "drwxr-xr-x"},
+		{os.ModeSymlink | 0o777, "lrwxrwxrwx"},
+		{os.ModeNamedPipe | 0o644, "prw-r--r--"},
+		{os.ModeSocket | 0o755, "srwxr-xr-x"},
+		{os.ModeDevice | os.ModeCharDevice | 0o666, "crw-rw-rw-"},
+		{os.ModeDevice | 0o660, "brw-rw----"},
+		{os.ModeSetuid | 0o755, "-rwsr-xr-x"},
+		{os.ModeSetuid | 0o644, "-rwSr--r--"},
+		{os.ModeSetgid | 0o755, "-rwxr-sr-x"},
+		{os.ModeSetgid | 0o745, "-rwxr-Sr-x"},
+		{os.ModeDir | os.ModeSticky | 0o755, "drwxr-xr-t"},
+		{os.ModeDir | os.ModeSticky | 0o754, "drwxr-xr-T"},
+		{os.ModeSetuid | os.ModeSetgid | os.ModeSticky | 0o777, "-rwsrwsrwt"},
 	}
-
-	dirMode := os.ModeDir | 0o755
-	got = formatPermissions(dirMode)
-	if got != "drwxr-xr-x" {
-		t.Fatalf("got %q", got)
+	for _, tc := range cases {
+		if got := formatPermissions(tc.mode); got != tc.want {
+			t.Errorf("formatPermissions(%v) = %q, want %q", tc.mode, got, tc.want)
+		}
 	}
 }

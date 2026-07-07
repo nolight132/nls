@@ -42,36 +42,53 @@ func formatPermissions(mode fs.FileMode) string {
 	var b strings.Builder
 	b.Grow(10)
 
-	switch {
-	case mode&fs.ModeSymlink != 0:
-		b.WriteByte('l')
-	case mode&fs.ModeDir != 0:
-		b.WriteByte('d')
-	default:
-		b.WriteByte('-')
-	}
+	b.WriteByte(fileTypeChar(mode))
 
-	writePermTriplet(&b, p, 0o400, 0o200, 0o100, 'r', 'w', 'x')
-	writePermTriplet(&b, p, 0o040, 0o020, 0o010, 'r', 'w', 'x')
-	writePermTriplet(&b, p, 0o004, 0o002, 0o001, 'r', 'w', 'x')
+	writePermTriplet(&b, p, 0o400, 0o200, 0o100, mode&fs.ModeSetuid != 0, 's')
+	writePermTriplet(&b, p, 0o040, 0o020, 0o010, mode&fs.ModeSetgid != 0, 's')
+	writePermTriplet(&b, p, 0o004, 0o002, 0o001, mode&fs.ModeSticky != 0, 't')
 
 	return b.String()
 }
 
-func writePermTriplet(b *strings.Builder, mode, r, w, x fs.FileMode, rc, wc, xc byte) {
+func fileTypeChar(mode fs.FileMode) byte {
+	switch {
+	case mode&fs.ModeSymlink != 0:
+		return 'l'
+	case mode&fs.ModeDir != 0:
+		return 'd'
+	case mode&fs.ModeCharDevice != 0:
+		return 'c'
+	case mode&fs.ModeDevice != 0:
+		return 'b'
+	case mode&fs.ModeNamedPipe != 0:
+		return 'p'
+	case mode&fs.ModeSocket != 0:
+		return 's'
+	default:
+		return '-'
+	}
+}
+
+func writePermTriplet(b *strings.Builder, mode, r, w, x fs.FileMode, special bool, specialChar byte) {
 	if mode&r != 0 {
-		b.WriteByte(rc)
+		b.WriteByte('r')
 	} else {
 		b.WriteByte('-')
 	}
 	if mode&w != 0 {
-		b.WriteByte(wc)
+		b.WriteByte('w')
 	} else {
 		b.WriteByte('-')
 	}
-	if mode&x != 0 {
-		b.WriteByte(xc)
-	} else {
+	switch {
+	case special && mode&x != 0:
+		b.WriteByte(specialChar)
+	case special:
+		b.WriteByte(specialChar &^ 0x20)
+	case mode&x != 0:
+		b.WriteByte('x')
+	default:
 		b.WriteByte('-')
 	}
 }

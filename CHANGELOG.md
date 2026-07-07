@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.4.1
+
+- Fixed permission strings for special files: FIFOs, sockets, and block/character devices now show their type char (`p`, `s`, `b`, `c`), and setuid/setgid/sticky bits render as `s`/`S`/`t`/`T` (`sudo` shows `-rwsr-xr-x` instead of `-rwxr-xr-x`).
+- Fixed `-F`/`--classify` to append `|` for FIFOs and `=` for sockets, as the help text documents.
+- Fixed table rendering to fit the terminal width. The name column shrinks and truncates with an ellipsis instead of wrapping every row when a long filename overflows.
+- Changed `-f`/`--fast` to imply `-a` again, per POSIX.
+- Fixed `--json` to be machine-parseable: RFC 3339 timestamps and a full `path` field in multi-directory or recursive listings.
+- Fixed listings to continue past failed operands, entries deleted mid-listing, and unreadable subdirectories under `-R`. Errors go to stderr, readable entries still print, and the exit code is nonzero.
+- Fixed control characters in filenames to render as `?` on terminals so crafted names cannot break table layout or inject escape sequences; piped output keeps raw names.
+- Fixed future timestamps to show the date instead of "just now".
+- Fixed human-readable sizes that round up to exactly 1024.0 to promote to the next unit.
+- Fixed `-u`/`-c` to show the accessed/changed column in long output.
+- Fixed `LS_COLORS` parsing to reject non-SGR values such as `ln=target`.
+- Fixed directory size estimation to skip `.` and `..`, and the raw Linux getdents path to skip deleted-but-present dirents (inode 0).
+- Removed the stale `NLS_ICONS` mention from the example config; environment-based icon configuration was removed in v0.4.0.
+- Improved sorting performance (`slices.SortStableFunc` instead of insertion sort) and memoized owner/group name lookups.
+
 ## v0.4.0
 
 - Removed the GNU `ls` compatibility layer. Plain output is now simpler and follows `nls` behavior for common listing workflows instead of trying to match GNU-specific edge cases.

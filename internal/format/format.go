@@ -47,6 +47,10 @@ func Modified(t time.Time, now time.Time) string {
 	}
 
 	diff := now.Sub(t)
+	// Allow a minute of clock skew before calling a timestamp future.
+	if diff < -time.Minute {
+		return future(t, now)
+	}
 	switch {
 	case diff < time.Minute:
 		return "just now"
@@ -86,4 +90,22 @@ func Modified(t time.Time, now time.Time) string {
 		}
 		return fmt.Sprintf("%d years ago", years)
 	}
+}
+
+// future labels timestamps ahead of now instead of claiming "just now".
+func future(t time.Time, now time.Time) string {
+	switch {
+	case sameDate(t, now):
+		return "today"
+	case sameDate(t, now.AddDate(0, 0, 1)):
+		return "tomorrow"
+	default:
+		return t.Format("2006-01-02")
+	}
+}
+
+func sameDate(a, b time.Time) bool {
+	ay, am, ad := a.Date()
+	by, bm, bd := b.Date()
+	return ay == by && am == bm && ad == bd
 }

@@ -79,3 +79,21 @@ func TestModifiedLongAgoStaysRelative(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestModifiedFuture(t *testing.T) {
+	now := time.Date(2026, 6, 20, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		t    time.Time
+		want string
+	}{
+		{now.Add(30 * time.Second), "just now"},
+		{now.Add(5 * time.Hour), "today"},
+		{now.Add(24 * time.Hour), "tomorrow"},
+		{time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC), "2030-01-01"},
+	}
+	for _, tt := range tests {
+		if got := Modified(tt.t, now); got != tt.want {
+			t.Errorf("Modified(%v) = %q, want %q", tt.t, got, tt.want)
+		}
+	}
+}

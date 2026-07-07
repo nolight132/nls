@@ -11,14 +11,6 @@ import (
 	"github.com/nolight132/nls/internal/config"
 )
 
-const (
-	maxDirWalkEntries        = 400
-	maxDirWalkDuration       = 50 * time.Millisecond
-	maxDirWorkers            = 3
-	maxDirsPerListingDefault = 6
-	maxListingEstimate       = 120 * time.Millisecond
-)
-
 type dirSizeResult struct {
 	bytes  int64
 	approx bool
@@ -55,10 +47,10 @@ func dirSizeCapsFor(depth int, precise bool) dirSizeCaps {
 		caps.MaxWalkEntries = 2000
 		caps.MaxDirsPerListing = 12
 	default:
-		caps.WalkDuration = maxDirWalkDuration
-		caps.ListingDuration = maxListingEstimate
-		caps.MaxWalkEntries = maxDirWalkEntries
-		caps.MaxDirsPerListing = maxDirsPerListingDefault
+		caps.WalkDuration = 50 * time.Millisecond
+		caps.ListingDuration = 120 * time.Millisecond
+		caps.MaxWalkEntries = 400
+		caps.MaxDirsPerListing = 6
 	}
 	return caps
 }
@@ -103,7 +95,7 @@ func estimateDirectorySizes(parent string, entries []Entry, depth int, precise b
 	if bounded && listingBudget > 0 {
 		listingDeadline = time.Now().Add(listingBudget)
 	}
-	workers := min(len(jobs), maxDirWorkers)
+	workers := min(len(jobs), 3)
 
 	ch := make(chan job)
 	var wg sync.WaitGroup

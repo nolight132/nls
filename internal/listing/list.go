@@ -188,6 +188,21 @@ func readDirAt(dir string, opts ListOptions, errs *[]error) ([]Entry, error) {
 	return out, nil
 }
 
+func readDirNamesUnsorted(dir string) ([]string, error) {
+	f, err := os.Open(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	raw, err := f.Readdirnames(-1)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(raw)+2)
+	names = append(names, ".", "..")
+	return append(names, raw...), nil
+}
+
 func readDirAtUnsorted(dir string, opts ListOptions, errs *[]error) ([]Entry, error) {
 	names, err := readDirNamesUnsorted(dir)
 	if err != nil {

@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.5.0
+
+- Added `-g`/`--git-status` for a `git` table column showing per-entry status as `staging│worktree` (`?│?` untracked, ` │M` modified, `I│ ` ignored). Directories aggregate the status of their contents. The column can be enabled by default via `default_columns = ["git"]` and hides itself outside git repositories.
+- Added git-state coloring of entry names in interactive listings: modified entries render yellow, untracked bright green, ignored gray. Enabled by default; toggle with `color_entries` under `[git]` in the config.
+- Added a `git_status` field to `--json` output when git status is computed.
+- Added global gitignore support: ignored-entry detection honors `core.excludesFile` and falls back to `$XDG_CONFIG_HOME/git/ignore`, matching git's own behavior instead of only reading per-repo `.gitignore`.
+- Changed headings, table headers, and the index column from green to blue so untracked green stays distinct.
+- Changed directory modified times to reflect the newest change anywhere in the subtree, so parent directories no longer look stale when only deeply-nested files changed.
+- Changed `-R`/`--recursive` to skip descending into `.git` directories.
+- Changed unsorted output (`-f`) to always list `.` and `..` first.
+
 ## v0.4.1
 
 - Fixed permission strings for special files: FIFOs, sockets, and block/character devices now show their type char (`p`, `s`, `b`, `c`), and setuid/setgid/sticky bits render as `s`/`S`/`t`/`T` (`sudo` shows `-rwsr-xr-x` instead of `-rwxr-xr-x`).

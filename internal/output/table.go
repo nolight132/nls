@@ -25,8 +25,11 @@ type tableColumn struct {
 	header       string
 	align        cellAlign
 	centerHeader bool
-	width        int
-	render       func(e listing.Entry, idx int, ctx renderCtx) string
+	// flex marks the column that shrinks when the table exceeds the
+	// terminal width.
+	flex   bool
+	width  int
+	render func(e listing.Entry, idx int, ctx renderCtx) string
 }
 
 type renderCtx struct {
@@ -134,6 +137,7 @@ func buildTableColumns(opts RenderOptions, styles *termcolor.Style) []tableColum
 			header:       styles.Header(spec.header),
 			align:        spec.align,
 			centerHeader: spec.centerHeader,
+			flex:         name == "name",
 			render:       spec.render,
 		})
 	}
@@ -168,7 +172,7 @@ func renderTable(w io.Writer, entries []listing.Entry, opts RenderOptions) error
 		rows = append(rows, row)
 	}
 
-	table := buildBorderedTable(cols, rows)
+	table := buildBorderedTable(cols, rows, opts.Width)
 	_, err := fmt.Fprint(w, table)
 	return err
 }
@@ -192,8 +196,9 @@ func tableDisplayName(e listing.Entry, opts RenderOptions) string {
 	return icons.For(e, opts.IconSet) + name
 }
 
-func buildBorderedTable(cols []tableColumn, rows [][]string) string {
+func buildBorderedTable(cols []tableColumn, rows [][]string, limit int) string {
 	computeWidths(cols, rows)
+	fitWidths(cols, rows, limit)
 
 	var b strings.Builder
 	writeBorderTop(&b, cols)
@@ -217,6 +222,50 @@ func computeWidths(cols []tableColumn, rows [][]string) {
 			}
 		}
 	}
+}
+
+// minFlexWidth keeps a shrunken name column readable.
+const minFlexWidth = 8
+
+// fitWidths shrinks the flex column and truncates its cells so the
+// rendered table fits within limit display cells.
+func fitWidths(cols []tableColumn, rows [][]string, limit int) {
+	if limit <= 0 {
+		return
+	}
+	total := tableWidth(cols)
+	if total <= limit {
+		return
+	}
+	flexIdx := -1
+	for i := range cols {
+		if cols[i].flex {
+			flexIdx = i
+			break
+		}
+	}
+	if flexIdx == -1 {
+		return
+	}
+	width := cols[flexIdx].width - (total - limit)
+	if min := max(minFlexWidth, visibleWidth(cols[flexIdx].header)); width < min {
+		width = min
+	}
+	if width >= cols[flexIdx].width {
+		return
+	}
+	cols[flexIdx].width = width
+	for _, row := range rows {
+		row[flexIdx] = truncateANSI(row[flexIdx], width)
+	}
+}
+
+func tableWidth(cols []tableColumn) int {
+	total := 1
+	for _, col := range cols {
+		total += col.width + 3
+	}
+	return total
 }
 
 func writeBorderTop(b *strings.Builder, cols []tableColumn) {

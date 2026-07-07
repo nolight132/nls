@@ -92,3 +92,53 @@ func TestVisibleWidthWithNonSGR(t *testing.T) {
 		t.Errorf("got %d, want 5", got)
 	}
 }
+
+func TestTruncateANSI(t *testing.T) {
+	tests := []struct {
+		in   string
+		max  int
+		want string
+	}{
+		{"short", 10, "short"},
+		{"exact", 5, "exact"},
+		{"longername", 5, "long…"},
+		{"\x1b[31mredname\x1b[0m", 4, "\x1b[31mred\x1b[0m…"},
+		{"日本語ファイル", 5, "日本…"},
+		{"日本語", 4, "日…"},
+		{"anything", 0, "anything"},
+	}
+	for _, tt := range tests {
+		if got := truncateANSI(tt.in, tt.max); got != tt.want {
+			t.Errorf("truncateANSI(%q, %d) = %q, want %q", tt.in, tt.max, got, tt.want)
+		}
+		if tt.max > 0 {
+			if w := visibleWidth(truncateANSI(tt.in, tt.max)); w > tt.max {
+				t.Errorf("truncateANSI(%q, %d) has width %d", tt.in, tt.max, w)
+			}
+		}
+	}
+}
+
+func TestTableCapsWidthToTerminal(t *testing.T) {
+	entries := []listing.Entry{
+		{Name: strings.Repeat("x", 120) + ".txt", Kind: listing.KindFile},
+		{Name: "short.txt", Kind: listing.KindFile},
+	}
+	var buf bytes.Buffer
+	if err := Render(&buf, []listing.Block{{Entries: entries}}, RenderOptions{
+		UseTable: true, IsTTY: true, Color: false,
+		Columns: []string{"id", "name", "size", "modified"},
+		Width:   60,
+		Now:     time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(strings.TrimRight(buf.String(), "\n"), "\n") {
+		if w := visibleWidth(line); w > 60 {
+			t.Errorf("line exceeds width 60 (got %d): %q", w, line)
+		}
+	}
+	if !strings.Contains(buf.String(), "…") {
+		t.Error("expected truncated name with ellipsis")
+	}
+}

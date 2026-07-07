@@ -42,6 +42,8 @@ type RenderOptions struct {
 	ShowInode  bool
 	ShowBlocks bool
 	UseTable   bool
+	// Width caps table rendering at the terminal width. 0 means no cap.
+	Width int
 	// Columns controls which columns appear in table mode and their order.
 	// Empty falls back to the built-in default set.
 	Columns []string

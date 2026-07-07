@@ -15,6 +15,7 @@ import (
 	"github.com/nolight132/nls/internal/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"golang.org/x/term"
 )
 
 // ErrReported signals a nonzero exit for errors already written to stderr.
@@ -218,6 +219,19 @@ func buildListOptions(cfg *Config, interactive bool) listing.ListOptions {
 	}
 }
 
+// terminalWidth returns the stdout terminal width for table capping,
+// or 0 when not interactive or the size cannot be determined.
+func terminalWidth(interactive bool) int {
+	if !interactive {
+		return 0
+	}
+	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || width <= 0 {
+		return 0
+	}
+	return width
+}
+
 func run(cfg *Config) error {
 	userCfg := loadUserConfig(os.Stderr)
 
@@ -260,6 +274,7 @@ func run(cfg *Config) error {
 		ShowInode:  cfg.Inode,
 		ShowBlocks: cfg.Blocks,
 		UseTable:   interactive,
+		Width:      terminalWidth(interactive),
 		Columns:    buildColumns(cfg),
 	}
 

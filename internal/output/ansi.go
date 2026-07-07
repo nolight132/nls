@@ -2,6 +2,7 @@ package output
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"github.com/mattn/go-runewidth"
 )
@@ -21,6 +22,38 @@ func stripANSI(s string) string {
 		b.WriteByte(s[i])
 		i++
 	}
+	return b.String()
+}
+
+// truncateANSI shortens s to at most max display cells, appending an
+// ellipsis. Escape sequences are preserved (including trailing resets)
+// so truncation never leaks color state into later cells.
+func truncateANSI(s string, max int) string {
+	if max <= 0 || visibleWidth(s) <= max {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	width := 0
+	target := max - 1
+	for i := 0; i < len(s); {
+		if s[i] == '\x1b' {
+			j := skipEscape(s, i)
+			b.WriteString(s[i:j])
+			i = j
+			continue
+		}
+		r, size := utf8.DecodeRuneInString(s[i:])
+		w := runewidth.RuneWidth(r)
+		if width+w > target {
+			i += size
+			continue
+		}
+		b.WriteString(s[i : i+size])
+		width += w
+		i += size
+	}
+	b.WriteString("…")
 	return b.String()
 }
 

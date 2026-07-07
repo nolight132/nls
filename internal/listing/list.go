@@ -80,7 +80,7 @@ func List(paths []string, opts ListOptions) ([]Block, []error) {
 			errs = append(errs, fmt.Errorf("%s: %w", op.raw, err))
 			return nil, errs
 		}
-		return []Block{{Entries: entries, Directory: true}}, errs
+		return []Block{{Dir: op.path, Entries: entries, Directory: true}}, errs
 	}
 
 	var files []Entry
@@ -110,7 +110,7 @@ func List(paths []string, opts ListOptions) ([]Block, []error) {
 			errs = append(errs, fmt.Errorf("%s: %w", op.raw, err))
 			continue
 		}
-		blocks = append(blocks, Block{Header: op.path, Entries: entries, Directory: true})
+		blocks = append(blocks, Block{Header: op.path, Dir: op.path, Entries: entries, Directory: true})
 	}
 
 	return blocks, errs
@@ -133,7 +133,7 @@ func listRecursive(dir string, opts ListOptions, errs *[]error) []Block {
 		return nil
 	}
 
-	blocks := []Block{{Header: dir, Entries: entries, Directory: true}}
+	blocks := []Block{{Header: dir, Dir: dir, Entries: entries, Directory: true}}
 	for _, e := range entries {
 		if e.Kind != KindDirectory {
 			continue

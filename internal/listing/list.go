@@ -249,6 +249,7 @@ func entryFromInfo(fullPath, name string, info fs.FileInfo, opts ListOptions) (E
 	accessed, changed := fileTimes(info)
 	entry := Entry{
 		Name:        name,
+		Mode:        info.Mode(),
 		Size:        info.Size(),
 		Modified:    info.ModTime(),
 		Accessed:    accessed,
@@ -284,7 +285,7 @@ func entryFromInfo(fullPath, name string, info fs.FileInfo, opts ListOptions) (E
 
 // placeholderEntry keeps a name visible when its metadata cannot be read.
 func placeholderEntry(name string, mode fs.FileMode) Entry {
-	entry := Entry{Name: name, Kind: KindFile}
+	entry := Entry{Name: name, Kind: KindFile, Mode: mode}
 	switch {
 	case mode&fs.ModeDir != 0:
 		entry.Kind = KindDirectory

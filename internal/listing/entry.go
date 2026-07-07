@@ -22,6 +22,7 @@ const (
 type Entry struct {
 	Name          string
 	Kind          Kind
+	Mode          fs.FileMode
 	Size          int64
 	SizeApprox    bool
 	Modified      time.Time
@@ -94,7 +95,7 @@ func writePermTriplet(b *strings.Builder, mode, r, w, x fs.FileMode, special boo
 }
 
 // ClassifySuffix returns ls -F / -p style suffix.
-func ClassifySuffix(kind Kind, classify, dirSlash bool) string {
+func ClassifySuffix(kind Kind, mode fs.FileMode, classify, dirSlash bool) string {
 	if dirSlash && kind == KindDirectory {
 		return "/"
 	}
@@ -106,7 +107,13 @@ func ClassifySuffix(kind Kind, classify, dirSlash bool) string {
 		return "/"
 	case KindSymlink:
 		return "@"
-	case KindExecutable:
+	}
+	switch {
+	case mode&fs.ModeSocket != 0:
+		return "="
+	case mode&fs.ModeNamedPipe != 0:
+		return "|"
+	case kind == KindExecutable:
 		return "*"
 	default:
 		return ""
@@ -127,7 +134,7 @@ func DisplayName(e Entry, classify, dirSlash, quote, showLinkTarget bool) string
 		}
 		return name
 	}
-	name += ClassifySuffix(e.Kind, classify, dirSlash)
+	name += ClassifySuffix(e.Kind, e.Mode, classify, dirSlash)
 	if quote {
 		return fmt.Sprintf("%q", name)
 	}

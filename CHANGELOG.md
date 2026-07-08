@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.2
+
+- Switch to using `git status --porcelain` for git state detection. Rationale for this is that `go-git` is too large for this simple task and used to make up the majority of the package size. I didn't want to rely on `git` being installed on the system, but eventually came to the conclusion that an average user is unlikely to have git repos on their system without having `git` installed. Systems without `git` fallback to uncolored output.
+
 ## v0.5.1
 
 - Fixed directory size estimation silently skipping directories beyond the per-listing cap or time budget: skipped directories showed their bare stat size (e.g. `4.0 KiB`) as if it were the content size. They are now marked with the `>` lower-bound prefix, and the default per-listing cap was raised from 6 to 16 directories so typical listings get fully estimated within the existing time budget.

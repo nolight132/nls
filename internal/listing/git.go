@@ -2,52 +2,60 @@ package listing
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"github.com/go-git/go-billy/v6/osfs"
-	git "github.com/go-git/go-git/v6"
-	"github.com/go-git/go-git/v6/plumbing/format/gitignore"
 )
 
 // gitStatusCache shares one status computation per repository across all
 // directories of a single List call: repo discovery is a cheap upward stat
-// walk, but Status and ReadPatterns scan the worktree and must run once.
+// walk, but the git status subprocess scans the worktree and must run once.
 // A nil info records a failed repo so it is not retried per directory.
 type gitStatusCache map[string]*repoGitInfo
 
+// statusCode is one column of a porcelain-v1 XY pair; the byte is git's
+// own display character.
+type statusCode byte
+
+const (
+	statusUnmodified statusCode = ' '
+	statusUntracked  statusCode = '?'
+	statusIgnored    statusCode = '!'
+)
+
+type statusPair struct{ staging, worktree statusCode }
+
 type repoGitInfo struct {
-	status  git.Status
-	matcher gitignore.Matcher
+	// files maps repo-root-relative slash paths of changed, untracked, or
+	// ignored files to their porcelain XY pair.
+	files map[string]statusPair
+	// dirs holds directories git reported collapsed because everything
+	// beneath them is untracked or ignored (trailing "/" stripped); their
+	// contents never appear in files.
+	dirs map[string]statusPair
 }
 
 // decorate fills GitStatus for entries listed from dir and reports whether
-// dir belongs to a git worktree. Any failure (not a repository, unreadable
-// index) leaves the entries untouched and returns false.
+// dir belongs to a git worktree. Any failure (not a repository, git missing)
+// leaves the entries untouched and returns false.
 func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
 		return false
 	}
-	repo, err := git.PlainOpenWithOptions(absDir, &git.PlainOpenOptions{DetectDotGit: true})
-	if err != nil {
+	root := findRepoRoot(absDir)
+	if root == "" {
 		return false
 	}
-	wt, err := repo.Worktree()
-	if err != nil {
-		return false
-	}
-	root := wt.Filesystem().Root()
 
 	info, ok := c[root]
 	if !ok {
-		info = loadRepoGitInfo(wt)
+		info = loadRepoGitInfo(root)
 		c[root] = info
 	}
 	if info == nil {
 		return false
 	}
-	status, matcher := info.status, info.matcher
 
 	// Status keys are slash-separated paths relative to the repo root;
 	// entry names are relative to the listed directory.
@@ -68,48 +76,51 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 		byName[entries[i].Name] = i
 	}
 
-	// One pass over the status map (only changed files appear in it; clean
-	// files are absent, which is also why Status.File is unusable here — it
-	// fabricates untracked placeholders for unknown paths). Exact keys are
-	// files; nested keys fold into the directory entry they live under,
-	// since git tracks files only and "sub/" never appears as a key.
-	type dirAgg struct{ staging, worktree git.StatusCode }
+	// One pass over the status maps (only changed files appear in them;
+	// clean files are absent). Exact keys set the entry directly; nested
+	// keys fold into the directory entry they live under. Ignored children
+	// are skipped when folding so an ignored file cannot dirty its parent.
+	type dirAgg struct{ staging, worktree statusCode }
 	aggs := make(map[int]*dirAgg)
-	for key, s := range status {
+	fold := func(key string, s statusPair) {
 		if !strings.HasPrefix(key, prefix) {
-			continue
+			return
 		}
 		name, _, nested := strings.Cut(key[len(prefix):], "/")
 		i, ok := byName[name]
 		if !ok {
-			continue
+			return
 		}
 		if !nested {
-			entries[i].GitStatus = gitStatusDisplay(s.Staging, s.Worktree)
-			entries[i].GitState = gitStateOf(s.Staging, s.Worktree)
-			continue
+			setEntryStatus(&entries[i], s)
+			return
+		}
+		if s.staging == statusIgnored {
+			return
 		}
 		a := aggs[i]
 		if a == nil {
-			a = &dirAgg{staging: git.Unmodified, worktree: git.Unmodified}
+			a = &dirAgg{staging: statusUnmodified, worktree: statusUnmodified}
 			aggs[i] = a
 		}
-		a.staging = foldStatusCode(a.staging, s.Staging)
-		a.worktree = foldStatusCode(a.worktree, s.Worktree)
+		a.staging = foldStatusCode(a.staging, s.staging)
+		a.worktree = foldStatusCode(a.worktree, s.worktree)
+	}
+	for key, s := range info.files {
+		fold(key, s)
+	}
+	for key, s := range info.dirs {
+		fold(key, s)
 	}
 	for i, a := range aggs {
 		if entries[i].GitStatus == "" {
-			entries[i].GitStatus = gitStatusDisplay(a.staging, a.worktree)
-			entries[i].GitState = gitStateOf(a.staging, a.worktree)
+			setEntryStatus(&entries[i], statusPair{a.staging, a.worktree})
 		}
 	}
 
-	// Entries absent from the status map are tracked-and-clean ("-:-") or
-	// gitignored ("-I-"). The same patterns Status used decide which.
-	var base []string
-	if prefix != "" {
-		base = strings.Split(strings.TrimSuffix(prefix, "/"), "/")
-	}
+	// Entries absent from the status maps are tracked-and-clean
+	// unless they live under a collapsed untracked or ignored directory,
+	// which git reports only as the directory itself.
 	for i := range entries {
 		e := &entries[i]
 		if e.GitStatus != "" {
@@ -118,89 +129,118 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 		// Dot entries get the neutral cell so the divider line stays
 		// unbroken; their state is not meaningful, so it stays None.
 		if e.Name == "." || e.Name == ".." {
-			e.GitStatus = gitStatusDisplay(git.Unmodified, git.Unmodified)
+			e.GitStatus = gitStatusDisplay(statusUnmodified, statusUnmodified)
 			continue
 		}
-		segs := append(base[:len(base):len(base)], e.Name)
-		if e.Name == ".git" || matcher.Match(segs, e.Kind == KindDirectory) {
+		if e.Name == ".git" {
 			e.GitStatus = gitStatusIgnoredDisplay()
 			e.GitState = GitStateIgnored
 			continue
 		}
-		e.GitStatus = gitStatusDisplay(git.Unmodified, git.Unmodified)
+		if s, ok := info.collapsed(prefix + e.Name); ok {
+			setEntryStatus(e, s)
+			continue
+		}
+		e.GitStatus = gitStatusDisplay(statusUnmodified, statusUnmodified)
 		e.GitState = GitStateClean
 	}
 	return true
 }
 
-// gitStateOf classifies a status pair from the status map.
-func gitStateOf(staging, worktree git.StatusCode) GitState {
+func setEntryStatus(e *Entry, s statusPair) {
+	if s.staging == statusIgnored {
+		e.GitStatus = gitStatusIgnoredDisplay()
+		e.GitState = GitStateIgnored
+		return
+	}
+	e.GitStatus = gitStatusDisplay(s.staging, s.worktree)
+	e.GitState = gitStateOf(s.staging, s.worktree)
+}
+
+func gitStateOf(staging, worktree statusCode) GitState {
 	switch {
-	case staging == git.Untracked && worktree == git.Untracked:
+	case staging == statusUntracked && worktree == statusUntracked:
 		return GitStateUntracked
-	case staging == git.Unmodified && worktree == git.Unmodified:
+	case staging == statusUnmodified && worktree == statusUnmodified:
 		return GitStateClean
 	default:
 		return GitStateModified
 	}
 }
 
-// loadRepoGitInfo computes the worktree status and ignore matcher for one
-// repository; nil means the repo is unusable.
-func loadRepoGitInfo(wt *git.Worktree) *repoGitInfo {
-	wt.Excludes = globalIgnorePatterns()
-	status, err := wt.Status()
-	if err != nil {
-		return nil
-	}
-	patterns, _ := gitignore.ReadPatterns(wt.Filesystem(), nil)
-	return &repoGitInfo{
-		status:  status,
-		matcher: gitignore.NewMatcher(append(patterns, wt.Excludes...)),
+// collapsed reports the status of the collapsed untracked or ignored
+// directory that path is or lives under, if any.
+func (info *repoGitInfo) collapsed(path string) (statusPair, bool) {
+	for {
+		if s, ok := info.dirs[path]; ok {
+			return s, true
+		}
+		i := strings.LastIndexByte(path, '/')
+		if i < 0 {
+			return statusPair{}, false
+		}
+		path = path[:i]
 	}
 }
 
-// globalIgnorePatterns loads the user's global gitignore the way git does:
-// core.excludesFile from the global config when set, otherwise the XDG
-// default ($XDG_CONFIG_HOME/git/ignore, falling back to ~/.config/git/ignore).
-// go-git only implements the former.
-func globalIgnorePatterns() []gitignore.Pattern {
-	if ps, err := gitignore.LoadGlobalPatterns(osfs.New("/")); err == nil && len(ps) > 0 {
-		return ps
-	}
-
-	confDir := os.Getenv("XDG_CONFIG_HOME")
-	if confDir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return nil
+// findRepoRoot walks upward from dir looking for a .git entry (a directory
+// in a normal checkout, a file in linked worktrees and submodules) and
+// returns the directory containing it, or "" when dir is not in a worktree.
+func findRepoRoot(dir string) string {
+	for {
+		if _, err := os.Lstat(filepath.Join(dir, ".git")); err == nil {
+			return dir
 		}
-		confDir = filepath.Join(home, ".config")
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
 	}
-	data, err := os.ReadFile(filepath.Join(confDir, "git", "ignore"))
+}
+
+// loadRepoGitInfo runs git status once for the repository rooted at root
+// and indexes its porcelain output.
+func loadRepoGitInfo(root string) *repoGitInfo {
+	out, err := exec.Command("git", "--no-optional-locks", "-C", root,
+		"status", "--porcelain", "-z", "--ignored").Output()
 	if err != nil {
 		return nil
 	}
-
-	var ps []gitignore.Pattern
-	for line := range strings.SplitSeq(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
+	info := &repoGitInfo{
+		files: make(map[string]statusPair),
+		dirs:  make(map[string]statusPair),
+	}
+	// Records are NUL-terminated "XY path"; staged renames and copies
+	// append the source path as an extra NUL-terminated field.
+	recs := strings.Split(string(out), "\x00")
+	for i := 0; i < len(recs); i++ {
+		rec := recs[i]
+		if len(rec) < 4 || rec[2] != ' ' {
 			continue
 		}
-		ps = append(ps, gitignore.ParsePattern(line, nil))
+		s := statusPair{statusCode(rec[0]), statusCode(rec[1])}
+		path := rec[3:]
+		if s.staging == 'R' || s.staging == 'C' {
+			i++ // skip the rename/copy source path
+		}
+		if p, ok := strings.CutSuffix(path, "/"); ok {
+			info.dirs[p] = s
+			continue
+		}
+		info.files[path] = s
 	}
-	return ps
+	return info
 }
 
 // foldStatusCode merges a child's code into a directory aggregate, per
 // column: a real change beats untracked, untracked beats unmodified, and
 // among real changes the first one seen wins.
-func foldStatusCode(cur, next git.StatusCode) git.StatusCode {
+func foldStatusCode(cur, next statusCode) statusCode {
 	switch {
-	case next == git.Unmodified:
+	case next == statusUnmodified:
 		return cur
-	case cur == git.Unmodified || cur == git.Untracked:
+	case cur == statusUnmodified || cur == statusUntracked:
 		return next
 	default:
 		return cur
@@ -217,18 +257,10 @@ var (
 	gitStatusIgnoredMark rune = 'I'
 )
 
-// gitStatusDisplay renders a status pair as three fixed characters
-func gitStatusDisplay(staging, worktree git.StatusCode) string {
-	return string([]rune{rune(displayCode(staging)), GitStatusSeparator, rune(displayCode(worktree))})
+func gitStatusDisplay(staging, worktree statusCode) string {
+	return string([]rune{rune(staging), GitStatusSeparator, rune(worktree)})
 }
 
 func gitStatusIgnoredDisplay() string {
 	return string([]rune{gitStatusIgnoredMark, GitStatusSeparator, ' '})
-}
-
-func displayCode(c git.StatusCode) byte {
-	if c == git.Unmodified {
-		return ' '
-	}
-	return byte(c)
 }

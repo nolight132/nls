@@ -54,13 +54,14 @@ func (s *Style) Name(name string, kind listing.Kind) string {
 // NameGit colors a filename by its git state, falling back to the
 // LS_COLORS rules for clean entries and entries outside a repo.
 func (s *Style) NameGit(name string, kind listing.Kind, state listing.GitState) string {
-	switch state {
-	case listing.GitStateUntracked:
+	clean := listing.GitState{Staging: listing.StatusUnmodified, Worktree: listing.StatusUnmodified}
+	switch {
+	case state.Staging == listing.StatusUntracked && state.Worktree == listing.StatusUntracked:
 		return s.sprint(color.New(color.FgHiGreen), name)
-	case listing.GitStateModified:
-		return s.sprint(color.New(color.FgYellow), name)
-	case listing.GitStateIgnored:
+	case state.Staging == listing.StatusIgnored || state.Worktree == listing.StatusIgnored:
 		return s.sprint(color.New(color.FgHiBlack), name)
+	case state != clean && state != (listing.GitState{}):
+		return s.sprint(color.New(color.FgYellow), name)
 	default:
 		return s.Name(name, kind)
 	}

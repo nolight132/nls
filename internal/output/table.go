@@ -134,7 +134,7 @@ var columnRegistry = map[string]struct {
 	"git": {
 		header: "git", align: alignLeft, centerHeader: false,
 		render: func(e listing.Entry, _ int, _ renderCtx) string {
-			return e.GitStatus
+			return string(rune(e.GitState.Staging)) + "│" + string(rune(e.GitState.Worktree))
 		},
 	},
 }
@@ -148,7 +148,7 @@ func buildTableColumns(opts RenderOptions, styles *termcolor.Style) []tableColum
 			continue
 		}
 		subDivider := -1
-		if name == "git" && listing.GitStatusSeparator == '│' {
+		if name == "git" {
 			subDivider = 1
 		}
 		cols = append(cols, tableColumn{

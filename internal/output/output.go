@@ -53,15 +53,15 @@ type RenderOptions struct {
 
 // JSONRow is a single entry in JSON output.
 type JSONRow struct {
-	Name        string `json:"name"`
-	Path        string `json:"path"`
-	Type        string `json:"type"`
-	Size        int64  `json:"size"`
-	SizeHuman   string `json:"size_human,omitempty"`
-	Modified    string `json:"modified,omitempty"`
-	Permissions string `json:"permissions"`
-	LinkTarget  string `json:"link_target,omitempty"`
-	GitStatus   string `json:"git_status,omitempty"`
+	Name        string           `json:"name"`
+	Path        string           `json:"path"`
+	Type        string           `json:"type"`
+	Size        int64            `json:"size"`
+	SizeHuman   string           `json:"size_human,omitempty"`
+	Modified    string           `json:"modified,omitempty"`
+	Permissions string           `json:"permissions"`
+	LinkTarget  string           `json:"link_target,omitempty"`
+	GitState    listing.GitState `json:"git_state,omitzero"`
 }
 
 // Render writes listing output according to options.
@@ -103,7 +103,7 @@ func renderJSON(w io.Writer, blocks []listing.Block, opts RenderOptions) error {
 				Size:        e.Size,
 				Permissions: e.Permissions,
 				LinkTarget:  e.LinkTarget,
-				GitStatus:   e.GitStatus,
+				GitState:    e.GitState,
 			}
 			if !e.Modified.IsZero() {
 				row.Modified = e.Modified.Format(time.RFC3339)

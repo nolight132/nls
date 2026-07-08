@@ -1,6 +1,7 @@
 package listing
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,29 +14,7 @@ import (
 // A nil info records a failed repo so it is not retried per directory.
 type gitStatusCache map[string]*repoGitInfo
 
-// statusCode is one column of a porcelain-v1 XY pair; the byte is git's
-// own display character.
-type statusCode byte
-
-const (
-	statusUnmodified statusCode = ' '
-	statusUntracked  statusCode = '?'
-	statusIgnored    statusCode = '!'
-)
-
-type statusPair struct{ staging, worktree statusCode }
-
-type repoGitInfo struct {
-	// files maps repo-root-relative slash paths of changed, untracked, or
-	// ignored files to their porcelain XY pair.
-	files map[string]statusPair
-	// dirs holds directories git reported collapsed because everything
-	// beneath them is untracked or ignored (trailing "/" stripped); their
-	// contents never appear in files.
-	dirs map[string]statusPair
-}
-
-// decorate fills GitStatus for entries listed from dir and reports whether
+// decorate fills GitState for entries listed from dir and reports whether
 // dir belongs to a git worktree. Any failure (not a repository, git missing)
 // leaves the entries untouched and returns false.
 func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
@@ -80,9 +59,10 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 	// clean files are absent). Exact keys set the entry directly; nested
 	// keys fold into the directory entry they live under. Ignored children
 	// are skipped when folding so an ignored file cannot dirty its parent.
-	type dirAgg struct{ staging, worktree statusCode }
-	aggs := make(map[int]*dirAgg)
-	fold := func(key string, s statusPair) {
+	// The zero GitState marks entries not yet decorated: porcelain codes
+	// are always printable bytes, so it cannot occur as a real status.
+	aggs := make(map[int]*GitState)
+	fold := func(key string, s GitState) {
 		if !strings.HasPrefix(key, prefix) {
 			return
 		}
@@ -92,19 +72,19 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 			return
 		}
 		if !nested {
-			setEntryStatus(&entries[i], s)
+			entries[i].GitState = s
 			return
 		}
-		if s.staging == statusIgnored {
+		if s.Staging == StatusIgnored {
 			return
 		}
 		a := aggs[i]
 		if a == nil {
-			a = &dirAgg{staging: statusUnmodified, worktree: statusUnmodified}
+			a = &GitState{StatusUnmodified, StatusUnmodified}
 			aggs[i] = a
 		}
-		a.staging = foldStatusCode(a.staging, s.staging)
-		a.worktree = foldStatusCode(a.worktree, s.worktree)
+		a.Staging = foldStatusCode(a.Staging, s.Staging)
+		a.Worktree = foldStatusCode(a.Worktree, s.Worktree)
 	}
 	for key, s := range info.files {
 		fold(key, s)
@@ -113,71 +93,82 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 		fold(key, s)
 	}
 	for i, a := range aggs {
-		if entries[i].GitStatus == "" {
-			setEntryStatus(&entries[i], statusPair{a.staging, a.worktree})
+		if entries[i].GitState == (GitState{}) {
+			entries[i].GitState = *a
 		}
 	}
 
-	// Entries absent from the status maps are tracked-and-clean
-	// unless they live under a collapsed untracked or ignored directory,
-	// which git reports only as the directory itself.
+	// Entries absent from the status maps are tracked-and-clean unless
+	// they live under a collapsed untracked or ignored directory, which
+	// git reports only as the directory itself. Dot entries get the
+	// neutral cell so the divider line stays unbroken, and .git is shown
+	// ignored without traversing it.
+	clean := GitState{StatusUnmodified, StatusUnmodified}
 	for i := range entries {
 		e := &entries[i]
-		if e.GitStatus != "" {
+		if e.GitState != (GitState{}) {
 			continue
 		}
-		// Dot entries get the neutral cell so the divider line stays
-		// unbroken; their state is not meaningful, so it stays None.
-		if e.Name == "." || e.Name == ".." {
-			e.GitStatus = gitStatusDisplay(statusUnmodified, statusUnmodified)
-			continue
+		switch e.Name {
+		case ".", "..":
+			e.GitState = clean
+		case ".git":
+			e.GitState = GitState{StatusIgnored, StatusIgnored}
+		default:
+			if s, ok := info.collapsed(prefix + e.Name); ok {
+				e.GitState = s
+			} else {
+				e.GitState = clean
+			}
 		}
-		if e.Name == ".git" {
-			e.GitStatus = gitStatusIgnoredDisplay()
-			e.GitState = GitStateIgnored
-			continue
-		}
-		if s, ok := info.collapsed(prefix + e.Name); ok {
-			setEntryStatus(e, s)
-			continue
-		}
-		e.GitStatus = gitStatusDisplay(statusUnmodified, statusUnmodified)
-		e.GitState = GitStateClean
 	}
 	return true
 }
 
-func setEntryStatus(e *Entry, s statusPair) {
-	if s.staging == statusIgnored {
-		e.GitStatus = gitStatusIgnoredDisplay()
-		e.GitState = GitStateIgnored
-		return
-	}
-	e.GitStatus = gitStatusDisplay(s.staging, s.worktree)
-	e.GitState = gitStateOf(s.staging, s.worktree)
+// StatusCode is one column of a porcelain-v1 XY pair; the byte is git's
+// own display character.
+type StatusCode byte
+
+const (
+	StatusUnmodified StatusCode = ' '
+	StatusUntracked  StatusCode = '?'
+	StatusIgnored    StatusCode = '!'
+	StatusModified   StatusCode = 'M'
+)
+
+type GitState struct{ Staging, Worktree StatusCode }
+
+func (s GitState) String() string {
+	return string(s.Staging) + string(s.Worktree)
 }
 
-func gitStateOf(staging, worktree statusCode) GitState {
-	switch {
-	case staging == statusUntracked && worktree == statusUntracked:
-		return GitStateUntracked
-	case staging == statusUnmodified && worktree == statusUnmodified:
-		return GitStateClean
-	default:
-		return GitStateModified
-	}
+// MarshalJSON emits the porcelain XY pair as a string ("??", " M") rather
+// than the raw byte values; encoding/json calls it via the interface when
+// JSON output serializes entries.
+func (s GitState) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String())
+}
+
+type repoGitInfo struct {
+	// files maps repo-root-relative slash paths of changed, untracked, or
+	// ignored files to their porcelain XY pair.
+	files map[string]GitState
+	// dirs holds directories git reported collapsed because everything
+	// beneath them is untracked or ignored (trailing "/" stripped); their
+	// contents never appear in files.
+	dirs map[string]GitState
 }
 
 // collapsed reports the status of the collapsed untracked or ignored
 // directory that path is or lives under, if any.
-func (info *repoGitInfo) collapsed(path string) (statusPair, bool) {
+func (info *repoGitInfo) collapsed(path string) (GitState, bool) {
 	for {
 		if s, ok := info.dirs[path]; ok {
 			return s, true
 		}
 		i := strings.LastIndexByte(path, '/')
 		if i < 0 {
-			return statusPair{}, false
+			return GitState{}, false
 		}
 		path = path[:i]
 	}
@@ -208,8 +199,8 @@ func loadRepoGitInfo(root string) *repoGitInfo {
 		return nil
 	}
 	info := &repoGitInfo{
-		files: make(map[string]statusPair),
-		dirs:  make(map[string]statusPair),
+		files: make(map[string]GitState),
+		dirs:  make(map[string]GitState),
 	}
 	// Records are NUL-terminated "XY path"; staged renames and copies
 	// append the source path as an extra NUL-terminated field.
@@ -219,9 +210,9 @@ func loadRepoGitInfo(root string) *repoGitInfo {
 		if len(rec) < 4 || rec[2] != ' ' {
 			continue
 		}
-		s := statusPair{statusCode(rec[0]), statusCode(rec[1])}
+		s := GitState{StatusCode(rec[0]), StatusCode(rec[1])}
 		path := rec[3:]
-		if s.staging == 'R' || s.staging == 'C' {
+		if s.Staging == 'R' || s.Staging == 'C' {
 			i++ // skip the rename/copy source path
 		}
 		if p, ok := strings.CutSuffix(path, "/"); ok {
@@ -234,33 +225,20 @@ func loadRepoGitInfo(root string) *repoGitInfo {
 }
 
 // foldStatusCode merges a child's code into a directory aggregate, per
-// column: a real change beats untracked, untracked beats unmodified, and
-// among real changes the first one seen wins.
-func foldStatusCode(cur, next statusCode) statusCode {
-	switch {
-	case next == statusUnmodified:
+// column: real changes collapse to M — the directory itself is modified,
+// not deleted or renamed, and folding happens in map order so keeping a
+// child's own code would be nondeterministic — and untracked beats
+// unmodified.
+func foldStatusCode(cur, next StatusCode) StatusCode {
+	switch next {
+	case StatusUnmodified:
 		return cur
-	case cur == statusUnmodified || cur == statusUntracked:
-		return next
+	case StatusUntracked:
+		if cur == StatusUnmodified {
+			return StatusUntracked
+		}
+		return cur
 	default:
-		return cur
+		return StatusModified
 	}
-}
-
-// GitStatusSeparator sits between the staging and worktree columns of the
-// git status cell; exported so the table renderer can hook its borders
-// into it when it is a box-drawing glyph. gitStatusIgnoredMark fills the
-// staging slot for gitignored entries. Variables so the glyphs can change
-// later.
-var (
-	GitStatusSeparator   rune = '│'
-	gitStatusIgnoredMark rune = 'I'
-)
-
-func gitStatusDisplay(staging, worktree statusCode) string {
-	return string([]rune{rune(staging), GitStatusSeparator, rune(worktree)})
-}
-
-func gitStatusIgnoredDisplay() string {
-	return string([]rune{gitStatusIgnoredMark, GitStatusSeparator, ' '})
 }

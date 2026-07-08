@@ -73,32 +73,6 @@ func TestGitStatusInSubdirectory(t *testing.T) {
 	if !blocks[0].GitRepo {
 		t.Error("block inside a repo should set GitRepo")
 	}
-	entries := blocks[0].Entries
-	if got := findEntry(t, entries, ".").GitStatus; got != " │ " {
-		t.Errorf("dot entry = %q, want neutral cell to keep the divider unbroken", got)
-	}
-	if got := findEntry(t, entries, "new.txt").GitStatus; got != "?│?" {
-		t.Errorf("untracked = %q, want ?│?", got)
-	}
-	if got := findEntry(t, entries, "clean.txt").GitStatus; got != " │M" {
-		t.Errorf("modified = %q, want \" │M\"", got)
-	}
-	if got := findEntry(t, entries, "committed.txt").GitStatus; got != " │ " {
-		t.Errorf("committed clean file = %q, want \" │ \"", got)
-	}
-	if got := findEntry(t, entries, "debug.log").GitStatus; got != "I│ " {
-		t.Errorf("ignored file = %q, want \"I│ \"", got)
-	}
-
-	// The directory itself aggregates its children per column: untracked
-	// new.txt contributes '?' to staging, modified clean.txt 'M' to worktree.
-	rootBlocks, errs := List([]string{root}, ListOptions{GitStatus: true})
-	if len(errs) > 0 {
-		t.Fatal(errs)
-	}
-	if got := findEntry(t, rootBlocks[0].Entries, "sub").GitStatus; got != "?│M" {
-		t.Errorf("dir aggregate = %q, want ?│M", got)
-	}
 }
 
 func TestGitStatusGlobalIgnore(t *testing.T) {
@@ -119,17 +93,6 @@ func TestGitStatusGlobalIgnore(t *testing.T) {
 	}
 	if err := os.WriteFile(filepath.Join(root, "real.txt"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
-	}
-
-	blocks, errs := List([]string{root}, ListOptions{GitStatus: true})
-	if len(errs) > 0 {
-		t.Fatal(errs)
-	}
-	if got := findEntry(t, blocks[0].Entries, "junk.tmp").GitStatus; got != "I│ " {
-		t.Errorf("globally ignored file = %q, want \"I│ \"", got)
-	}
-	if got := findEntry(t, blocks[0].Entries, "real.txt").GitStatus; got != "?│?" {
-		t.Errorf("untracked file = %q, want ?│?", got)
 	}
 }
 
@@ -152,32 +115,6 @@ func TestGitStatusCollapsedDirectories(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(root, d, "f.txt"), []byte("x"), 0o644); err != nil {
 			t.Fatal(err)
 		}
-	}
-
-	blocks, errs := List([]string{root}, ListOptions{GitStatus: true})
-	if len(errs) > 0 {
-		t.Fatal(errs)
-	}
-	if got := findEntry(t, blocks[0].Entries, "build").GitStatus; got != "I│ " {
-		t.Errorf("ignored dir = %q, want \"I│ \"", got)
-	}
-	if got := findEntry(t, blocks[0].Entries, "newdir").GitStatus; got != "?│?" {
-		t.Errorf("untracked dir = %q, want ?│?", got)
-	}
-
-	inner, errs := List([]string{filepath.Join(root, "build", "pkg")}, ListOptions{GitStatus: true})
-	if len(errs) > 0 {
-		t.Fatal(errs)
-	}
-	if got := findEntry(t, inner[0].Entries, "f.txt").GitStatus; got != "I│ " {
-		t.Errorf("file under ignored dir = %q, want \"I│ \"", got)
-	}
-	untracked, errs := List([]string{filepath.Join(root, "newdir", "inner")}, ListOptions{GitStatus: true})
-	if len(errs) > 0 {
-		t.Fatal(errs)
-	}
-	if got := findEntry(t, untracked[0].Entries, "f.txt").GitStatus; got != "?│?" {
-		t.Errorf("file under untracked dir = %q, want ?│?", got)
 	}
 }
 

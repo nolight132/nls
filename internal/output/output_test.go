@@ -213,7 +213,7 @@ func TestRenderTableIgnoresUnknownColumn(t *testing.T) {
 }
 
 func TestRenderTableHidesGitColumnOutsideRepo(t *testing.T) {
-	entries := []listing.Entry{{Name: "a.txt", Kind: listing.KindFile, GitStatus: "??"}}
+	entries := []listing.Entry{{Name: "a.txt", Kind: listing.KindFile, GitState: listing.GitState{Staging: '?', Worktree: '?'}}}
 	opts := RenderOptions{
 		UseTable: true,
 		IsTTY:    true,
@@ -235,13 +235,13 @@ func TestRenderTableHidesGitColumnOutsideRepo(t *testing.T) {
 	if err := Render(&buf, []listing.Block{{Entries: entries, GitRepo: true}}, opts); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "git") || !strings.Contains(buf.String(), "??") {
+	if !strings.Contains(buf.String(), "git") || !strings.Contains(buf.String(), "?│?") {
 		t.Fatalf("git column should render inside a repo: %q", buf.String())
 	}
 }
 
 func TestRenderTableGitDividerConnectsToBorders(t *testing.T) {
-	entries := []listing.Entry{{Name: "a.txt", Kind: listing.KindFile, GitStatus: "?│M"}}
+	entries := []listing.Entry{{Name: "a.txt", Kind: listing.KindFile, GitState: listing.GitState{Staging: '?', Worktree: 'M'}}}
 	var buf bytes.Buffer
 	if err := Render(&buf, []listing.Block{{Entries: entries, GitRepo: true}}, RenderOptions{
 		UseTable: true,

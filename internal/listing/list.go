@@ -140,9 +140,8 @@ func sortOperands(operands []operand, sort SortOptions) {
 	if sort.Field == SortByNone {
 		return
 	}
-	names := newNameComparer()
 	slices.SortStableFunc(operands, func(a, b operand) int {
-		return compare(a.entry, b.entry, sort, names)
+		return compare(a.entry, b.entry, sort)
 	})
 }
 

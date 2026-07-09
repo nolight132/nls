@@ -2,18 +2,15 @@
 
 # nls
 
+[![Build](https://img.shields.io/github/actions/workflow/status/nolight132/nls/ci.yml?branch=main)](https://github.com/nolight132/nls/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/nolight132/nls)](./LICENSE)
+
 ### neo-ls: a modern `ls` with useful tables
 
 A fast, cross-platform file listing tool that feels familiar in scripts
 and looks beautiful in your terminal.
 
-<br>
-
 `nls` is heavily inspired by [Nushell](https://github.com/nushell)'s `ls`.
-
-The original goal was simple: bring Nushell's excellent table-based file listings
-to traditional shells and environments without requiring users to switch to Nushell itself.
-
 </div>
 
 <div align="center">
@@ -30,31 +27,20 @@ to traditional shells and environments without requiring users to switch to Nush
 
 ## Why nls?
 
-`nls` is not trying to be a full shell, and it is not just another colorful `ls`.
+`nls` is a **neo-ls**: a modern file listing command built around beautiful tables, compatibility in pipes and scripts, and useful defaults like directory sizes without slowing normal usage.
 
-It is a **neo-ls**: a modern file listing command designed around three ideas:
-
-- beautiful tables when you are looking at files interactively
-- practical compatibility when used in pipes and scripts
-- useful defaults, like showing directory sizes without making normal usage slow
-
-Nushell already provides an excellent file listing experience, and much of `nls` is inspired by it.
-
-However, not everyone wants a new shell.
-
-Many users are perfectly happy with bash, zsh, fish, PowerShell, or existing terminal workflows. They want the table layouts, metadata presentation, and overall polish of `nu ls`, but they do not necessarily want Nushell's programming model, pipeline semantics, or compatibility tradeoffs.
-
-For those users, switching shells can sometimes reduce usability rather than improve it, especially when working with existing shell scripts, documentation, and POSIX-oriented tooling.
+Nushell's `ls` already provides this experience, but not everyone wants to switch shells — many users are happy with bash, zsh, fish, or PowerShell and just want the table layouts of `nu ls` without Nushell's programming model and compatibility tradeoffs.
 
 `nls` exists for people who want the visual experience of modern terminal tools while keeping the workflows they already know.
 
-It works in bash, zsh, fish, Nushell, PowerShell, Windows Terminal, Linux terminals, macOS terminals, and other environments where a normal CLI binary can run.
+It works in bash, zsh, fish, Nushell, PowerShell, and any terminal on Linux, macOS, or Windows where a normal CLI binary can run.
 
 ---
 
 ## Features
 
 - Nushell-style tables for interactive terminal use
+- Git status per listed entry
 - Directory sizes shown by default
 - Fast non-TTY behavior for pipes, redirects, and scripts
 - `ls`-like behavior for common workflows

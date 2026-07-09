@@ -7,15 +7,26 @@ import (
 	"github.com/nolight132/nls/internal/listing"
 )
 
-type rule struct {
-	selector string
+type suffixRule struct {
 	sequence string
+	// index preserves dircolors semantics: of all rules matching a name,
+	// the one latest in LS_COLORS wins.
+	index int
+}
+
+type otherRule struct {
+	suffix   string
+	sequence string
+	index    int
 }
 
 // Styler applies LS_COLORS-compatible filename colors.
 type Styler struct {
-	extRules  []rule
-	typeRules map[string]string
+	// dotRules holds "*.ext" selectors keyed by ".ext"; otherRules holds
+	// the rare "*suffix" selectors whose suffix does not start with a dot.
+	dotRules   map[string]suffixRule
+	otherRules []otherRule
+	typeRules  map[string]string
 }
 
 // New reads LS_COLORS or falls back to a small theme-friendly default.
@@ -28,7 +39,8 @@ func New() *Styler {
 }
 
 func parse(raw string) *Styler {
-	s := &Styler{typeRules: make(map[string]string)}
+	s := &Styler{dotRules: make(map[string]suffixRule), typeRules: make(map[string]string)}
+	index := 0
 	for entry := range strings.SplitSeq(raw, ":") {
 		if entry == "" {
 			continue
@@ -37,11 +49,20 @@ func parse(raw string) *Styler {
 		if !ok {
 			continue
 		}
-		if strings.Contains(selector, "*") {
-			s.extRules = append(s.extRules, rule{selector: selector, sequence: sequence})
-			continue
+		switch {
+		case strings.HasPrefix(selector, "*"):
+			suffix := selector[1:]
+			if strings.HasPrefix(suffix, ".") {
+				s.dotRules[suffix] = suffixRule{sequence: sequence, index: index}
+			} else {
+				s.otherRules = append(s.otherRules, otherRule{suffix: suffix, sequence: sequence, index: index})
+			}
+			index++
+		case strings.Contains(selector, "*"):
+			// Mid-string wildcards were never matched; keep ignoring them.
+		default:
+			s.typeRules[selector] = sequence
 		}
-		s.typeRules[selector] = sequence
 	}
 	return s
 }
@@ -68,10 +89,18 @@ func validSequence(seq string) bool {
 }
 
 func (s *Styler) matchSequence(name string, kind listing.Kind) string {
-	seq := ""
-	for _, r := range s.extRules {
-		if matchSelector(r.selector, name) {
-			seq = r.sequence
+	seq, best := "", -1
+	for i := 0; i < len(name); i++ {
+		if name[i] != '.' {
+			continue
+		}
+		if r, ok := s.dotRules[name[i:]]; ok && r.index > best {
+			seq, best = r.sequence, r.index
+		}
+	}
+	for _, r := range s.otherRules {
+		if r.index > best && strings.HasSuffix(name, r.suffix) {
+			seq, best = r.sequence, r.index
 		}
 	}
 	if seq != "" {
@@ -91,14 +120,4 @@ func typeCode(kind listing.Kind) string {
 	default:
 		return "fi"
 	}
-}
-
-func matchSelector(selector, name string) bool {
-	if !strings.Contains(selector, "*") {
-		return name == selector
-	}
-	if strings.HasPrefix(selector, "*") {
-		return strings.HasSuffix(name, selector[1:])
-	}
-	return false
 }

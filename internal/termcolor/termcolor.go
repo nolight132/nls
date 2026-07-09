@@ -12,6 +12,18 @@ type Style struct {
 	styler  *lscolor.Styler
 }
 
+var (
+	headingColor   = color.New(color.FgBlue)
+	headerColor    = color.New(color.FgBlue, color.Bold)
+	untrackedColor = color.New(color.FgHiGreen)
+	ignoredColor   = color.New(color.FgHiBlack)
+	dirtyColor     = color.New(color.FgYellow)
+	sizeColor      = color.New(color.FgCyan)
+	modifiedColor  = color.New(color.FgMagenta)
+	errorColor     = color.New(color.FgRed)
+	emptyColor     = color.New(color.FgHiBlack)
+)
+
 // New returns a color style helper.
 func New(enabled bool) *Style {
 	var styler *lscolor.Styler
@@ -31,16 +43,16 @@ func (s *Style) sprint(c *color.Color, value string) string {
 
 // Heading colors the heading text.
 func (s *Style) Heading(value string) string {
-	return s.sprint(color.New(color.FgBlue), value)
+	return s.sprint(headingColor, value)
 }
 
 func (s *Style) Header(value string) string {
-	return s.sprint(color.New(color.FgBlue, color.Bold), value)
+	return s.sprint(headerColor, value)
 }
 
 // Index colors the index column
 func (s *Style) Index(value string) string {
-	return s.sprint(color.New(color.FgBlue, color.Bold), value)
+	return s.sprint(headerColor, value)
 }
 
 // Name colors a filename using LS_COLORS-compatible rules.
@@ -57,11 +69,11 @@ func (s *Style) NameGit(name string, kind listing.Kind, state listing.GitState) 
 	clean := listing.GitState{Staging: listing.StatusUnmodified, Worktree: listing.StatusUnmodified}
 	switch {
 	case state.Staging == listing.StatusUntracked && state.Worktree == listing.StatusUntracked:
-		return s.sprint(color.New(color.FgHiGreen), name)
+		return s.sprint(untrackedColor, name)
 	case state.Staging == listing.StatusIgnored || state.Worktree == listing.StatusIgnored:
-		return s.sprint(color.New(color.FgHiBlack), name)
+		return s.sprint(ignoredColor, name)
 	case state != clean && state != (listing.GitState{}):
-		return s.sprint(color.New(color.FgYellow), name)
+		return s.sprint(dirtyColor, name)
 	default:
 		return s.Name(name, kind)
 	}
@@ -69,7 +81,7 @@ func (s *Style) NameGit(name string, kind listing.Kind, state listing.GitState) 
 
 // Size colors the size column
 func (s *Style) Size(value string) string {
-	return s.sprint(color.New(color.FgCyan), value)
+	return s.sprint(sizeColor, value)
 }
 
 // Modified colors the modified column
@@ -77,15 +89,15 @@ func (s *Style) Modified(value string) string {
 	if !s.enabled || value == "-" {
 		return value
 	}
-	return s.sprint(color.New(color.FgMagenta), value)
+	return s.sprint(modifiedColor, value)
 }
 
 // Error colors error text red.
 func (s *Style) Error(msg string) string {
-	return s.sprint(color.New(color.FgRed), msg)
+	return s.sprint(errorColor, msg)
 }
 
 // Empty colors empty table messages.
 func (s *Style) Empty(msg string) string {
-	return s.sprint(color.New(color.FgHiBlack), msg)
+	return s.sprint(emptyColor, msg)
 }

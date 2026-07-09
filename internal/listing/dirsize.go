@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -97,7 +98,7 @@ func estimateDirectorySizes(parent string, entries []Entry, opts ListOptions) {
 	if bounded && listingBudget > 0 {
 		listingDeadline = time.Now().Add(listingBudget)
 	}
-	workers := min(len(jobs), 3)
+	workers := min(len(jobs), runtime.NumCPU())
 
 	ch := make(chan job)
 	var wg sync.WaitGroup

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,9 +16,6 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/term"
 )
-
-// ErrReported signals a nonzero exit for errors already written to stderr.
-var ErrReported = errors.New("errors already reported")
 
 // Flags holds parsed CLI flags.
 type Flags struct {
@@ -297,13 +293,7 @@ func run(cfg *Flags) error {
 	for _, e := range errs {
 		output.WriteError(e, suggest)
 	}
-	if err := output.Render(os.Stdout, blocks, outOpts); err != nil {
-		return err
-	}
-	if len(errs) > 0 {
-		return ErrReported
-	}
-	return nil
+	return output.Render(os.Stdout, blocks, outOpts)
 }
 
 func loadUserConfig(w io.Writer) config.Config {

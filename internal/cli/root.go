@@ -45,6 +45,8 @@ type Flags struct {
 	Precise     bool
 	Paths       []string
 	GitStatus   bool
+	Plain       bool
+	Table       bool
 }
 
 // Root returns the root cobra command.
@@ -101,6 +103,8 @@ func Root() *cobra.Command {
 	cmd.Flags().BoolVar(&cfg.JSON, "json", false, "output JSON")
 	cmd.Flags().BoolVarP(&cfg.Precise, "precise", "P", false, "compute exact directory sizes without depth, time, or entry limits")
 	cmd.Flags().BoolVarP(&cfg.GitStatus, "git-status", "g", false, "show git status")
+	cmd.Flags().BoolVar(&cfg.Plain, "plain", false, "output in plain text")
+	cmd.Flags().BoolVar(&cfg.Table, "table", false, "output in table format")
 	cmd.Flags().BoolP("version", "", false, "version for nls")
 	configureHelp(cmd)
 
@@ -126,7 +130,7 @@ func run(cfg *Flags) error {
 
 	isTTY := output.StdoutIsTTY()
 	interactive := useTable(cfg, isTTY)
-	colorEnabled := interactive && !cfg.NoColor
+	colorEnabled := useColor(cfg, isTTY)
 
 	var iconSet icons.Set
 	if interactive {

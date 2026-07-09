@@ -18,7 +18,7 @@ func configureHelp(cmd *cobra.Command) {
 		"git-status",
 	)
 	markGroup(cmd, "Plain-output layout flags", "one", "comma")
-	markGroup(cmd, "nls presentation flags", "json", "precise", "no-icons", "no-color", "help", "version")
+	markGroup(cmd, "nls presentation flags", "json", "precise", "no-icons", "no-color", "plain", "table", "help", "version")
 
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		out := cmd.OutOrStdout()

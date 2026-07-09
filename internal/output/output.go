@@ -15,6 +15,7 @@ import (
 	"github.com/nolight132/nls/internal/format"
 	"github.com/nolight132/nls/internal/icons"
 	"github.com/nolight132/nls/internal/listing"
+	"github.com/nolight132/nls/internal/termcolor"
 	"golang.org/x/term"
 )
 
@@ -72,6 +73,7 @@ func Render(w io.Writer, blocks []listing.Block, opts RenderOptions) error {
 		return renderJSON(w, blocks, opts)
 	}
 	if opts.UseTable {
+		styles := termcolor.New(opts.Color)
 		for i, block := range blocks {
 			if i > 0 {
 				fmt.Fprintln(w)
@@ -81,7 +83,7 @@ func Render(w io.Writer, blocks []listing.Block, opts RenderOptions) error {
 			}
 			blockOpts := opts
 			blockOpts.Columns = columnsForBlock(block, opts.Columns)
-			if err := renderTable(w, block.Entries, blockOpts); err != nil {
+			if err := renderTable(w, block.Entries, blockOpts, styles); err != nil {
 				return err
 			}
 		}

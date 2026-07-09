@@ -163,8 +163,7 @@ func buildTableColumns(opts RenderOptions, styles *termcolor.Style) []tableColum
 	return cols
 }
 
-func renderTable(w io.Writer, entries []listing.Entry, opts RenderOptions) error {
-	styles := termcolor.New(opts.Color)
+func renderTable(w io.Writer, entries []listing.Entry, opts RenderOptions, styles *termcolor.Style) error {
 	if len(entries) == 0 {
 		renderEmptyTable(w, styles)
 		return nil

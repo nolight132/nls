@@ -15,6 +15,7 @@ func renderPlain(w io.Writer, blocks []listing.Block, opts RenderOptions) error 
 	if now.IsZero() {
 		now = time.Now()
 	}
+	styles := termcolor.New(opts.Color)
 
 	for bi, block := range blocks {
 		if bi > 0 && opts.Plain != PlainCommas {
@@ -29,14 +30,14 @@ func renderPlain(w io.Writer, blocks []listing.Block, opts RenderOptions) error 
 		}
 		blockOpts := opts
 		blockOpts.Columns = columnsForBlock(block, opts.Columns)
-		if err := renderPlainBlock(w, block.Entries, blockOpts, now); err != nil {
+		if err := renderPlainBlock(w, block.Entries, blockOpts, now, styles); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func renderPlainBlock(w io.Writer, entries []listing.Entry, opts RenderOptions, now time.Time) error {
+func renderPlainBlock(w io.Writer, entries []listing.Entry, opts RenderOptions, now time.Time, styles *termcolor.Style) error {
 	switch opts.Plain {
 	case PlainCommas:
 		names := make([]string, 0, len(entries))
@@ -46,7 +47,7 @@ func renderPlainBlock(w io.Writer, entries []listing.Entry, opts RenderOptions, 
 		_, err := fmt.Fprintln(w, strings.Join(names, ", "))
 		return err
 	case PlainLong:
-		return renderPlainColumns(w, entries, opts, now)
+		return renderPlainColumns(w, entries, opts, now, styles)
 	default:
 		for _, e := range entries {
 			if _, err := fmt.Fprintln(w, plainName(e, opts)); err != nil {
@@ -67,8 +68,7 @@ func plainName(e listing.Entry, opts RenderOptions) string {
 
 // renderPlainColumns renders the same columns the table would show, aligned
 // as plain text without borders or headers.
-func renderPlainColumns(w io.Writer, entries []listing.Entry, opts RenderOptions, now time.Time) error {
-	styles := termcolor.New(opts.Color)
+func renderPlainColumns(w io.Writer, entries []listing.Entry, opts RenderOptions, now time.Time, styles *termcolor.Style) error {
 	cols := buildTableColumns(opts, styles)
 	if len(cols) == 0 {
 		return nil

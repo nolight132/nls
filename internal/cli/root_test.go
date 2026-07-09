@@ -154,7 +154,7 @@ func TestBuildColumnsFlagsAppendIfMissing(t *testing.T) {
 		DefaultColumns: []config.ColumnEntry{config.ColumnName, config.ColumnSize},
 	}
 	cols := buildColumns(&Flags{Inode: true, Blocks: true, Long: true}, userCfg)
-	want := []string{"name", "size", "inode", "blocks", "permissions"}
+	want := []string{"name", "size", "inode", "blocks", "permissions", "owner"}
 	if len(cols) != len(want) {
 		t.Fatalf("cols = %v, want %v", cols, want)
 	}

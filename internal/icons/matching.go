@@ -101,97 +101,124 @@ type iconMatcher struct {
 	icon Icon
 }
 
-var iconMatchers = []iconMatcher{
-	{regexp.MustCompile(`(?i)^dockerfile(?:\..*)?$|^\.dockerignore$|^containerfile$`), IconDockerfile},
-	{regexp.MustCompile(`(?i)^makefile$|^gnumakefile$|^cmakelists\.txt$|\.(?:mk|make|cmake)$`), IconMakefile},
-	{regexp.MustCompile(`(?i)^package-lock\.json$|^yarn\.lock$|^pnpm-lock\.ya?ml$|^composer\.lock$|^gemfile\.lock$|^cargo\.lock$|^mix\.lock$|^poetry\.lock$|^pipfile\.lock$`), IconLockfile},
-	{regexp.MustCompile(`(?i)^package\.json$`), IconNode},
-	{regexp.MustCompile(`(?i)^\.npmrc$`), IconNPM},
-	{regexp.MustCompile(`(?i)^pnpm-workspace\.ya?ml$|^\.yarnrc(?:\.ya?ml)?$`), IconNode},
+type iconGroup struct {
+	icon  Icon
+	names []string
+}
+
+// exactNames map special filenames (lowercased) to icons. They take
+// precedence over patternMatchers and extension matches, so a name listed
+// here must not also match an earlier pattern with a different icon.
+var exactNames = buildNameMap([]iconGroup{
+	{IconDockerfile, []string{"dockerfile", ".dockerignore", "containerfile"}},
+	{IconMakefile, []string{"makefile", "gnumakefile", "cmakelists.txt"}},
+	{IconLockfile, []string{"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "pnpm-lock.yml", "composer.lock", "gemfile.lock", "cargo.lock", "mix.lock", "poetry.lock", "pipfile.lock"}},
+	{IconNode, []string{"package.json", "pnpm-workspace.yaml", "pnpm-workspace.yml", ".yarnrc", ".yarnrc.yaml", ".yarnrc.yml"}},
+	{IconNPM, []string{".npmrc"}},
+	{IconPythonPackage, []string{"pyproject.toml", "pipfile"}},
+	{IconCargo, []string{"cargo.toml"}},
+	{IconGoMod, []string{"go.mod", "go.sum", "go.work"}},
+	{IconGradle, []string{"build.gradle", "settings.gradle", "build.gradle.kts", "settings.gradle.kts"}},
+	{IconMaven, []string{"pom.xml"}},
+	{IconComposer, []string{"composer.json"}},
+	{IconGemfile, []string{"gemfile"}},
+	{IconMix, []string{"mix.exs"}},
+	{IconGit, []string{".gitignore", ".gitattributes", ".gitmodules", "codeowners", ".gitlab-ci.yaml", ".gitlab-ci.yml"}},
+	{IconKubernetes, []string{"chart.yaml", "chart.yml", "values.yaml", "values.yml"}},
+	{IconAnsible, []string{"ansible.cfg", "playbook.yaml", "playbook.yml"}},
+})
+
+// patternMatchers cover the special filenames that are not fixed strings.
+// Checked in order after exactNames, before the extension lookup.
+var patternMatchers = []iconMatcher{
+	{regexp.MustCompile(`(?i)^dockerfile\.`), IconDockerfile},
 	{regexp.MustCompile(`(?i)^vite\.config\.[cm]?[jt]s$`), IconVite},
 	{regexp.MustCompile(`(?i)^tailwind\.config\.[cm]?[jt]s$`), IconTailwind},
 	{regexp.MustCompile(`(?i)^(?:webpack|babel|eslint|prettier|jest|vitest|playwright|cypress|postcss)\.config\.[cm]?[jt]s$|^\.(?:babelrc|eslintrc|prettierrc)(?:\..*)?$`), IconJavaScript},
-	{regexp.MustCompile(`(?i)^pyproject\.toml$|^requirements(?:-[\w.-]+)?\.txt$|^pipfile$`), IconPythonPackage},
-	{regexp.MustCompile(`(?i)^cargo\.toml$`), IconCargo},
-	{regexp.MustCompile(`(?i)^go\.(?:mod|sum|work)$`), IconGoMod},
-	{regexp.MustCompile(`(?i)^(?:build|settings)\.gradle(?:\.kts)?$`), IconGradle},
-	{regexp.MustCompile(`(?i)^pom\.xml$`), IconMaven},
-	{regexp.MustCompile(`(?i)^(?:composer\.json|composer\.lock)$`), IconComposer},
-	{regexp.MustCompile(`(?i)^gemfile$`), IconGemfile},
-	{regexp.MustCompile(`(?i)^mix\.exs$`), IconMix},
-	{regexp.MustCompile(`(?i)^\.gitignore$|^\.gitattributes$|^\.gitmodules$|^codeowners$|^\.gitlab-ci\.ya?ml$`), IconGit},
-	{regexp.MustCompile(`(?i)^chart\.ya?ml$|^values\.ya?ml$|(?:^|[-_.])(?:deployment|service|ingress|namespace|configmap|secret|kustomization)\.ya?ml$`), IconKubernetes},
-	{regexp.MustCompile(`(?i)^ansible\.cfg$|^playbook\.ya?ml$`), IconAnsible},
-	{regexp.MustCompile(`(?i)^license(?:\..*)?$|^copying(?:\..*)?$|^changelog(?:\..*)?$|^readme(?:\..*)?$`), IconText},
+	{regexp.MustCompile(`(?i)^requirements(?:-[\w.-]+)?\.txt$`), IconPythonPackage},
+	{regexp.MustCompile(`(?i)(?:^|[-_.])(?:deployment|service|ingress|namespace|configmap|secret|kustomization)\.ya?ml$`), IconKubernetes},
+	{regexp.MustCompile(`(?i)^(?:license|copying|changelog|readme)(?:\..*)?$`), IconText},
 	{regexp.MustCompile(`(?i)^\.env(?:\..*)?$`), IconEnvironment},
+}
 
-	{regexp.MustCompile(`(?i)\.(?:c)$`), IconC},
-	{regexp.MustCompile(`(?i)\.(?:h)$`), IconC},
-	{regexp.MustCompile(`(?i)\.(?:cpp|cc|cxx|c\+\+|hpp|hh|hxx|h\+\+|ipp|tpp)$`), IconCpp},
-	{regexp.MustCompile(`(?i)\.(?:m|mm)$`), IconC},
-	{regexp.MustCompile(`(?i)\.(?:md|markdown|mdown|mkd)$`), IconMarkdown},
-	{regexp.MustCompile(`(?i)\.(?:rs)$`), IconRust},
-	{regexp.MustCompile(`(?i)\.(?:go)$`), IconGo},
-	{regexp.MustCompile(`(?i)\.(?:py|pyw|pyi)$`), IconPython},
-	{regexp.MustCompile(`(?i)\.(?:rb|erb)$`), IconRuby},
-	{regexp.MustCompile(`(?i)\.(?:js|mjs|cjs)$`), IconJavaScript},
-	{regexp.MustCompile(`(?i)\.(?:ts|mts|cts)$`), IconTypeScript},
-	{regexp.MustCompile(`(?i)\.(?:jsx|tsx)$`), IconReact},
-	{regexp.MustCompile(`(?i)\.(?:java|kt|kts|scala|sc|groovy|gvy)$`), IconJava},
-	{regexp.MustCompile(`(?i)\.(?:php|phtml|blade\.php|hack)$`), IconPHP},
-	{regexp.MustCompile(`(?i)\.(?:swift)$`), IconSwift},
-	{regexp.MustCompile(`(?i)\.(?:dart)$`), IconDart},
-	{regexp.MustCompile(`(?i)\.(?:zig)$`), IconZig},
-	{regexp.MustCompile(`(?i)\.(?:lua)$`), IconLua},
-	{regexp.MustCompile(`(?i)\.(?:sh|bash|zsh)$`), IconShell},
-	{regexp.MustCompile(`(?i)\.(?:fish|cmd|bat)$`), IconTerminal},
-	{regexp.MustCompile(`(?i)\.(?:ps1|psm1|psd1)$`), IconPowerShell},
-	{regexp.MustCompile(`(?i)\.(?:vim|vimrc|gvimrc)$`), IconVim},
-	{regexp.MustCompile(`(?i)\.(?:coffee)$`), IconCoffeeScript},
-	{regexp.MustCompile(`(?i)\.(?:pl|pm|t)$`), IconPerl},
-	{regexp.MustCompile(`(?i)\.(?:hs|lhs)$`), IconHaskell},
-	{regexp.MustCompile(`(?i)\.(?:ex|exs)$`), IconElixir},
-	{regexp.MustCompile(`(?i)\.(?:erl|hrl)$`), IconErlang},
-	{regexp.MustCompile(`(?i)\.(?:clj|cljs|cljc|edn)$`), IconClojure},
-	{regexp.MustCompile(`(?i)\.(?:r|rmd)$`), IconR},
-	{regexp.MustCompile(`(?i)\.(?:jl)$`), IconJulia},
-	{regexp.MustCompile(`(?i)\.(?:fs|fsi|fsx)$`), IconFSharp},
-	{regexp.MustCompile(`(?i)\.(?:cs|csx)$`), IconCSharp},
-	{regexp.MustCompile(`(?i)\.(?:vb)$`), IconVisualBasic},
+// extNames map filename extensions (lowercased, without the dot) to icons.
+var extNames = buildNameMap([]iconGroup{
+	{IconMakefile, []string{"mk", "make", "cmake"}},
+	{IconC, []string{"c", "h", "m", "mm"}},
+	{IconCpp, []string{"cpp", "cc", "cxx", "c++", "hpp", "hh", "hxx", "h++", "ipp", "tpp"}},
+	{IconMarkdown, []string{"md", "markdown", "mdown", "mkd"}},
+	{IconRust, []string{"rs"}},
+	{IconGo, []string{"go"}},
+	{IconPython, []string{"py", "pyw", "pyi"}},
+	{IconRuby, []string{"rb", "erb"}},
+	{IconJavaScript, []string{"js", "mjs", "cjs"}},
+	{IconTypeScript, []string{"ts", "mts", "cts"}},
+	{IconReact, []string{"jsx", "tsx", "svelte"}},
+	{IconJava, []string{"java", "kt", "kts", "scala", "sc", "groovy", "gvy"}},
+	{IconPHP, []string{"php", "phtml", "hack"}},
+	{IconSwift, []string{"swift"}},
+	{IconDart, []string{"dart"}},
+	{IconZig, []string{"zig"}},
+	{IconLua, []string{"lua"}},
+	{IconShell, []string{"sh", "bash", "zsh"}},
+	{IconTerminal, []string{"fish", "cmd", "bat"}},
+	{IconPowerShell, []string{"ps1", "psm1", "psd1"}},
+	{IconVim, []string{"vim", "vimrc", "gvimrc"}},
+	{IconCoffeeScript, []string{"coffee"}},
+	{IconPerl, []string{"pl", "pm", "t"}},
+	{IconHaskell, []string{"hs", "lhs"}},
+	{IconElixir, []string{"ex", "exs"}},
+	{IconErlang, []string{"erl", "hrl"}},
+	{IconClojure, []string{"clj", "cljs", "cljc", "edn"}},
+	{IconR, []string{"r", "rmd"}},
+	{IconJulia, []string{"jl"}},
+	{IconFSharp, []string{"fs", "fsi", "fsx"}},
+	{IconCSharp, []string{"cs", "csx"}},
+	{IconVisualBasic, []string{"vb"}},
+	{IconHTML, []string{"html", "htm", "astro"}},
+	{IconCSS, []string{"css"}},
+	{IconSass, []string{"sass", "scss"}},
+	{IconLess, []string{"less"}},
+	{IconVue, []string{"vue"}},
+	{IconXML, []string{"xml", "xsd", "xsl", "xslt", "plist"}},
+	{IconYAML, []string{"yaml", "yml"}},
+	{IconJSON, []string{"json", "jsonc", "json5"}},
+	{IconTOML, []string{"toml"}},
+	{IconConfig, []string{"conf", "config", "cfg", "ini", "properties", "editorconfig"}},
+	{IconTerraform, []string{"tf", "tfvars", "hcl"}},
+	{IconNix, []string{"nix"}},
+	{IconJupyter, []string{"ipynb"}},
+	{IconDotNet, []string{"csproj", "fsproj", "vbproj", "sln", "props", "targets"}},
+	{IconPDF, []string{"pdf"}},
+	{IconWord, []string{"doc", "docx", "odt", "rtf"}},
+	{IconExcel, []string{"xls", "xlsx", "ods", "csv", "tsv"}},
+	{IconPowerPoint, []string{"ppt", "pptx", "odp"}},
+	{IconSVG, []string{"svg", "svgz"}},
+	{IconImage, []string{"png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "tif", "tiff", "avif", "heic"}},
+	{IconVideo, []string{"mp4", "mkv", "mov", "webm", "avi", "m4v", "wmv", "flv"}},
+	{IconAudio, []string{"mp3", "wav", "flac", "ogg", "m4a", "aac", "opus"}},
+	{IconArchive, []string{"zip", "tar", "gz", "tgz", "bz2", "xz", "zst", "7z", "rar", "iso", "dmg"}},
+	{IconExecutable, []string{"exe", "app", "out", "com"}},
+	{IconLibrary, []string{"so", "dll", "dylib", "a", "lib"}},
+	{IconFont, []string{"ttf", "otf", "woff", "woff2", "eot"}},
+	{IconDatabase, []string{"db", "sqlite", "sqlite3", "mdb", "accdb", "bson", "rdb"}},
+	{IconSQL, []string{"sql", "pgsql", "mysql"}},
+	{IconBinary, []string{"bin", "dat", "dump"}},
+	{IconText, []string{"txt", "log"}},
+})
 
-	{regexp.MustCompile(`(?i)\.(?:html|htm|astro)$`), IconHTML},
-	{regexp.MustCompile(`(?i)\.(?:css)$`), IconCSS},
-	{regexp.MustCompile(`(?i)\.(?:sass|scss)$`), IconSass},
-	{regexp.MustCompile(`(?i)\.(?:less)$`), IconLess},
-	{regexp.MustCompile(`(?i)\.(?:vue)$`), IconVue},
-	{regexp.MustCompile(`(?i)\.(?:svelte)$`), IconReact},
-	{regexp.MustCompile(`(?i)\.(?:xml|xsd|xsl|xslt|plist)$`), IconXML},
-	{regexp.MustCompile(`(?i)\.(?:ya?ml)$`), IconYAML},
-	{regexp.MustCompile(`(?i)\.(?:json|jsonc|json5)$`), IconJSON},
-	{regexp.MustCompile(`(?i)\.(?:toml)$`), IconTOML},
-	{regexp.MustCompile(`(?i)\.(?:conf|config|cfg|ini|properties|editorconfig)$`), IconConfig},
-
-	{regexp.MustCompile(`(?i)\.(?:tf|tfvars|hcl)$`), IconTerraform},
-	{regexp.MustCompile(`(?i)\.(?:nix)$`), IconNix},
-	{regexp.MustCompile(`(?i)\.(?:ipynb)$`), IconJupyter},
-	{regexp.MustCompile(`(?i)\.(?:csproj|fsproj|vbproj|sln|props|targets)$`), IconDotNet},
-
-	{regexp.MustCompile(`(?i)\.(?:pdf)$`), IconPDF},
-	{regexp.MustCompile(`(?i)\.(?:doc|docx|odt|rtf)$`), IconWord},
-	{regexp.MustCompile(`(?i)\.(?:xls|xlsx|ods|csv|tsv)$`), IconExcel},
-	{regexp.MustCompile(`(?i)\.(?:ppt|pptx|odp)$`), IconPowerPoint},
-	{regexp.MustCompile(`(?i)\.(?:svg|svgz)$`), IconSVG},
-	{regexp.MustCompile(`(?i)\.(?:png|jpe?g|gif|webp|bmp|ico|tiff?|avif|heic)$`), IconImage},
-	{regexp.MustCompile(`(?i)\.(?:mp4|mkv|mov|webm|avi|m4v|wmv|flv)$`), IconVideo},
-	{regexp.MustCompile(`(?i)\.(?:mp3|wav|flac|ogg|m4a|aac|opus)$`), IconAudio},
-	{regexp.MustCompile(`(?i)\.(?:zip|tar|gz|tgz|bz2|xz|zst|7z|rar|iso|dmg)$`), IconArchive},
-	{regexp.MustCompile(`(?i)\.(?:exe|app|out|com)$`), IconExecutable},
-	{regexp.MustCompile(`(?i)\.(?:so|dll|dylib|a|lib)$`), IconLibrary},
-	{regexp.MustCompile(`(?i)\.(?:ttf|otf|woff2?|eot)$`), IconFont},
-	{regexp.MustCompile(`(?i)\.(?:db|sqlite3?|mdb|accdb|bson|rdb)$`), IconDatabase},
-	{regexp.MustCompile(`(?i)\.(?:sql|pgsql|mysql)$`), IconSQL},
-	{regexp.MustCompile(`(?i)\.(?:bin|dat|dump)$`), IconBinary},
-	{regexp.MustCompile(`(?i)\.(?:txt|log)$`), IconText},
+// buildNameMap resolves duplicate keys first-wins, matching the priority
+// order of the original top-to-bottom matcher list.
+func buildNameMap(groups []iconGroup) map[string]Icon {
+	m := make(map[string]Icon, 4*len(groups))
+	for _, g := range groups {
+		for _, name := range g.names {
+			if _, ok := m[name]; !ok {
+				m[name] = g.icon
+			}
+		}
+	}
+	return m
 }
 
 func MatchIcon(suffix string) string {
@@ -199,9 +226,18 @@ func MatchIcon(suffix string) string {
 	if name == "" || name == "." || name == string(filepath.Separator) {
 		return ""
 	}
-	for _, matcher := range iconMatchers {
+	lower := strings.ToLower(name)
+	if icon, ok := exactNames[lower]; ok {
+		return icon.Char
+	}
+	for _, matcher := range patternMatchers {
 		if matcher.re.MatchString(name) {
 			return matcher.icon.Char
+		}
+	}
+	if i := strings.LastIndexByte(lower, '.'); i >= 0 && i+1 < len(lower) {
+		if icon, ok := extNames[lower[i+1:]]; ok {
+			return icon.Char
 		}
 	}
 	return ""

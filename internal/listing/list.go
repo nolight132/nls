@@ -38,6 +38,12 @@ type ListOptions struct {
 	DirSizeTiming string
 	Sort          SortOptions
 	GitStatus     bool
+	// NeedLinkTarget reads symlink targets (readlink) for display or JSON;
+	// NeedLinkTargetDir stats targets to mark dir-targeting links for
+	// dirs-first grouping and -F classification. Both cost one extra
+	// syscall per symlink, so they stay off unless the output uses them.
+	NeedLinkTarget    bool
+	NeedLinkTargetDir bool
 }
 
 type operand struct {
@@ -299,12 +305,15 @@ func entryFromInfo(fullPath, name string, info fs.FileInfo, opts ListOptions) (E
 	switch {
 	case mode&os.ModeSymlink != 0 && !opts.Dereference:
 		entry.Kind = KindSymlink
-		target, err := os.Readlink(fullPath)
-		if err == nil {
-			entry.LinkTarget = target
+		if opts.NeedLinkTarget {
+			if target, err := os.Readlink(fullPath); err == nil {
+				entry.LinkTarget = target
+			}
 		}
-		if targetInfo, err := os.Stat(fullPath); err == nil && targetInfo.IsDir() {
-			entry.LinkTargetDir = true
+		if opts.NeedLinkTargetDir {
+			if targetInfo, err := os.Stat(fullPath); err == nil && targetInfo.IsDir() {
+				entry.LinkTargetDir = true
+			}
 		}
 	case info.IsDir():
 		entry.Kind = KindDirectory

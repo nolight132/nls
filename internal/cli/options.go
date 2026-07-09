@@ -24,6 +24,9 @@ func buildListOptions(cfg *Flags, userCfg config.Config, interactive bool) listi
 	gitStatus := cfg.GitStatus ||
 		(interactive && !cfg.NoColor && userCfg.Git.ColorEntries)
 
+	needLinkTarget := cfg.JSON || cfg.Long || userCfg.Render.ShowLinkTarget
+	needLinkTargetDir := cfg.DirsFirst || (needLinkTarget && cfg.Classify)
+
 	return listing.ListOptions{
 		DirSizeDepth:  userCfg.DirSize.DefaultDepth,
 		DirSizeTiming: userCfg.DirSize.Timing,
@@ -43,8 +46,10 @@ func buildListOptions(cfg *Flags, userCfg config.Config, interactive bool) listi
 		DirSlash:      cfg.DirSlash,
 		QuoteNames:    cfg.QuoteName,
 		Commas:        cfg.Commas,
-		Sort:          buildSort(cfg),
-		GitStatus:     gitStatus,
+		Sort:              buildSort(cfg),
+		GitStatus:         gitStatus,
+		NeedLinkTarget:    needLinkTarget,
+		NeedLinkTargetDir: needLinkTargetDir,
 	}
 }
 

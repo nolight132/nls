@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/nolight132/nls/internal/config"
 	"github.com/nolight132/nls/internal/icons"
@@ -13,8 +12,6 @@ import (
 	"github.com/nolight132/nls/internal/pathutil"
 	"github.com/nolight132/nls/internal/version"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"golang.org/x/term"
 )
 
 // Flags holds parsed CLI flags.
@@ -110,136 +107,6 @@ func Root() *cobra.Command {
 	return cmd
 }
 
-func configureHelp(cmd *cobra.Command) {
-	markGroup(cmd, "Listing flags (table and plain output)",
-		"all", "almost-all", "long", "human-readable", "recursive", "reverse",
-		"time", "access-time", "ctime", "size", "extension", "unsorted", "fast",
-		"directory", "classify", "slash", "ignore-backups", "dereference",
-		"quote-name", "group-directories-first", "inode", "size-blocks",
-		"git-status",
-	)
-	markGroup(cmd, "Plain-output layout flags", "one", "comma")
-	markGroup(cmd, "nls presentation flags", "json", "precise", "no-icons", "no-color", "help", "version")
-
-	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		out := cmd.OutOrStdout()
-		fmt.Fprintf(out, "%s\n\n", cmd.Long)
-		fmt.Fprintf(out, "Usage:\n  %s\n\n", cmd.UseLine())
-
-		writeFlagGroup(out, cmd.Flags(), "Listing flags (table and plain output)")
-		writeFlagGroup(out, cmd.Flags(), "Plain-output layout flags")
-		writeFlagGroup(out, cmd.Flags(), "nls presentation flags")
-	})
-}
-
-func markGroup(cmd *cobra.Command, group string, names ...string) {
-	for _, name := range names {
-		flag := cmd.Flags().Lookup(name)
-		if flag == nil {
-			continue
-		}
-		if flag.Annotations == nil {
-			flag.Annotations = map[string][]string{}
-		}
-		flag.Annotations["nls:group"] = []string{group}
-	}
-}
-
-func writeFlagGroup(out io.Writer, flags *pflag.FlagSet, group string) {
-	var lines []string
-	flags.VisitAll(func(flag *pflag.Flag) {
-		flagGroup, ok := flag.Annotations["nls:group"]
-		if flag.Hidden || !ok || len(flagGroup) == 0 || flagGroup[0] != group {
-			return
-		}
-		lines = append(lines, formatFlag(flag))
-	})
-	if len(lines) == 0 {
-		return
-	}
-	fmt.Fprintf(out, "%s:\n%s\n\n", group, strings.Join(lines, "\n"))
-}
-
-func formatFlag(flag *pflag.Flag) string {
-	name := "      --" + flag.Name
-	if flag.Shorthand != "" {
-		name = fmt.Sprintf("  -%s, --%s", flag.Shorthand, flag.Name)
-	}
-
-	usage := strings.TrimSpace(flag.Usage)
-	if usage == "" {
-		return fmt.Sprintf("%-34s", name)
-	}
-
-	lines := strings.Split(usage, "\n")
-	const nameWidth = 34
-	var b strings.Builder
-	fmt.Fprintf(&b, "%-*s %s", nameWidth, name, strings.TrimSpace(lines[0]))
-	indent := strings.Repeat(" ", nameWidth+1)
-	for _, line := range lines[1:] {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		b.WriteByte('\n')
-		b.WriteString(indent)
-		b.WriteString(line)
-	}
-	return b.String()
-}
-
-func buildListOptions(cfg *Flags, userCfg config.Config, interactive bool) listing.ListOptions {
-	estimateSizes := cfg.Precise || (interactive && userCfg.DirSize.Enabled)
-	estimateDepth := 0
-	if cfg.Precise {
-		estimateDepth = listing.EstimateDepthMax
-	} else if estimateSizes {
-		estimateDepth = listing.EstimateDepthBounded
-	}
-
-	// Git status is computed when the -g column asks for it, or when
-	// default git coloring needs the data on a colored interactive
-	// listing. The column itself still only renders with -g.
-	gitStatus := cfg.GitStatus ||
-		(interactive && !cfg.NoColor && userCfg.Git.ColorEntries)
-
-	return listing.ListOptions{
-		DirSizeDepth:  userCfg.DirSize.DefaultDepth,
-		DirSizeTiming: userCfg.DirSize.Timing,
-		All:           cfg.All,
-		AlmostAll:     cfg.AlmostAll,
-		IgnoreBackups: cfg.IgnoreBack,
-		Dereference:   cfg.Dereference,
-		Directory:     cfg.Directory,
-		Recursive:     cfg.Recursive,
-		EstimateSizes: estimateSizes,
-		EstimateDepth: estimateDepth,
-		Precise:       cfg.Precise,
-		LongListing:   cfg.Long,
-		ShowInode:     cfg.Inode,
-		ShowBlocks:    cfg.Blocks,
-		Classify:      cfg.Classify,
-		DirSlash:      cfg.DirSlash,
-		QuoteNames:    cfg.QuoteName,
-		Commas:        cfg.Commas,
-		Sort:          buildSort(cfg),
-		GitStatus:     gitStatus,
-	}
-}
-
-// terminalWidth returns the stdout terminal width for table capping,
-// or 0 when not interactive or the size cannot be determined.
-func terminalWidth(interactive bool) int {
-	if !interactive {
-		return 0
-	}
-	width, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil || width <= 0 {
-		return 0
-	}
-	return width
-}
-
 func run(cfg *Flags) error {
 	userCfg := loadUserConfig(os.Stderr)
 
@@ -303,98 +170,4 @@ func loadUserConfig(w io.Writer) config.Config {
 		return config.Defaults()
 	}
 	return userCfg
-}
-
-func buildColumns(cfg *Flags, userCfg config.Config) []string {
-	cols := make([]string, 0, len(userCfg.DefaultColumns)+4)
-	seen := make(map[string]bool, len(userCfg.DefaultColumns)+4)
-	for _, c := range userCfg.DefaultColumns {
-		s := string(c)
-		if s == string(config.ColumnModified) {
-			s = timeColumn(cfg)
-		}
-		if !seen[s] {
-			cols = append(cols, s)
-			seen[s] = true
-		}
-	}
-	if cfg.Inode && !seen[string(config.ColumnInode)] {
-		cols = append(cols, string(config.ColumnInode))
-	}
-	if cfg.Blocks && !seen[string(config.ColumnBlocks)] {
-		cols = append(cols, string(config.ColumnBlocks))
-	}
-	if cfg.Long && !seen[string(config.ColumnPermissions)] {
-		cols = append(cols, string(config.ColumnPermissions))
-	}
-	if cfg.GitStatus && !seen[string(config.ColumnGitStatus)] {
-		cols = append(cols, string(config.ColumnGitStatus))
-	}
-	return cols
-}
-
-func buildSort(cfg *Flags) listing.SortOptions {
-	sort := listing.SortOptions{
-		Reverse:   cfg.Reverse,
-		DirsFirst: cfg.DirsFirst,
-		TimeField: timeField(cfg),
-	}
-	switch {
-	case cfg.Unsorted:
-		sort.Field = listing.SortByNone
-	case cfg.SortTime || ((cfg.SortAccess || cfg.SortChange) && !cfg.Long):
-		sort.Field = listing.SortByTime
-	case cfg.SortSize:
-		sort.Field = listing.SortBySize
-	case cfg.SortExt:
-		sort.Field = listing.SortByExtension
-	default:
-		sort.Field = listing.SortByName
-	}
-	return sort
-}
-
-func timeField(cfg *Flags) listing.TimeField {
-	switch {
-	case cfg.SortAccess:
-		return listing.TimeAccessed
-	case cfg.SortChange:
-		return listing.TimeChanged
-	default:
-		return listing.TimeModified
-	}
-}
-
-// timeColumn maps -u/-c to the column showing the sorted timestamp.
-func timeColumn(cfg *Flags) string {
-	switch timeField(cfg) {
-	case listing.TimeAccessed:
-		return string(config.ColumnAccessed)
-	case listing.TimeChanged:
-		return string(config.ColumnChanged)
-	default:
-		return string(config.ColumnModified)
-	}
-}
-
-func plainMode(cfg *Flags) output.PlainMode {
-	switch {
-	case cfg.Commas:
-		return output.PlainCommas
-	case cfg.Long:
-		return output.PlainLong
-	default:
-		return output.PlainOne
-	}
-}
-
-// useTable is true on a TTY unless the user asks for a different output shape.
-func useTable(cfg *Flags, isTTY bool) bool {
-	if !isTTY || cfg.JSON {
-		return false
-	}
-	if cfg.Commas || cfg.One {
-		return false
-	}
-	return true
 }

@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.6.0
+
+- Added `--plain` and `--table` flags to force an output layout. `--table` renders the bordered table even when output is piped, and `--plain` produces plain text even in an interactive terminal. Forcing table output off a terminal keeps color disabled; `--no-color` still disables it everywhere.
+- Changed table mode to hide symlink targets by default. Set `expand_symlinks = true` under the new `[render]` config section to show them; long listings (`-l`) always show targets.
+- Changed the `git_status` field in `--json` output to `git_state`, and its value to the raw porcelain pair without the `│` separator (`"?M"` instead of `"?│M"`). Terminal table output is unchanged.
+- Changed directory git-status aggregation in the `git` column to always report contained changes as `M`, instead of showing whichever status code was encountered first (`A`, `D`, `R`, ...).
+- Changed listings that print entries but hit per-path errors to exit `0` instead of `1`; the errors themselves still go to stderr.
+- Removed locale-aware sorting: names now sort in plain byte order regardless of `LC_ALL`/`LC_COLLATE`/`LANG`. Dropping the collation tables cuts the binary size by roughly 30%, and byte ordering is consistent across systems.
+
 ## v0.5.2
 
 - Switch to using `git status --porcelain` for git state detection. Rationale for this is that `go-git` is too large for this simple task and used to make up the majority of the package size. I didn't want to rely on `git` being installed on the system, but eventually came to the conclusion that an average user is unlikely to have git repos on their system without having `git` installed. Systems without `git` fallback to uncolored output.

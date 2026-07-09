@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.7.0
+
+- Made listings dramatically faster across the common interactive and scripted paths, especially in larger directories and color/icon-heavy output. No user-facing behavior changed; this release is focused on speed and responsiveness.
+
 ## v0.6.0
 
 - Added `--plain` and `--table` flags to force an output layout. `--table` renders the bordered table even when output is piped, and `--plain` produces plain text even in an interactive terminal. Forcing table output off a terminal keeps color disabled; `--no-color` still disables it everywhere.

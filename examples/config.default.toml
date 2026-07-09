@@ -39,3 +39,7 @@ timing = "balanced"
 # Color entry names by git state when the git column (-g) is shown:
 # yellow = modified, green = untracked, gray = ignored.
 color_entries = true
+
+[render]
+# Show symlink target names in table mode. '-l' overrides to always show.
+expand_symlinks = false

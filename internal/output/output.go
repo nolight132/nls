@@ -29,26 +29,24 @@ const (
 
 // RenderOptions control rendered output.
 type RenderOptions struct {
-	Human      bool
-	Long       bool
-	JSON       bool
-	Color      bool
-	IconSet    icons.Set
-	IsTTY      bool
-	Now        time.Time
-	Plain      PlainMode
-	Classify   bool
-	DirSlash   bool
-	QuoteName  bool
-	ShowInode  bool
-	ShowBlocks bool
-	UseTable   bool
-	// Width caps table rendering at the terminal width. 0 means no cap.
-	Width int
-	// Columns controls which columns appear in table mode and their order.
-	// Empty falls back to the built-in default set.
+	Human           bool
+	Long            bool
+	JSON            bool
+	Color           bool
+	IconSet         icons.Set
+	IsTTY           bool
+	Now             time.Time
+	Plain           PlainMode
+	Classify        bool
+	DirSlash        bool
+	QuoteName       bool
+	ShowInode       bool
+	ShowBlocks      bool
+	UseTable        bool
+	Width           int
 	Columns         []string
 	GitColorEntries bool
+	ShowLinkTarget  bool
 }
 
 // JSONRow is a single entry in JSON output.

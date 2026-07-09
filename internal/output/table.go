@@ -207,7 +207,11 @@ func renderEmptyTable(w io.Writer, styles *termcolor.Style) {
 }
 
 func tableDisplayName(e listing.Entry, opts RenderOptions) string {
-	name := listing.DisplayName(e, opts.Classify, opts.DirSlash, opts.QuoteName, true)
+	showLinkTarget := opts.ShowLinkTarget
+	if opts.Long {
+		showLinkTarget = true
+	}
+	name := listing.DisplayName(e, opts.Classify, opts.DirSlash, opts.QuoteName, showLinkTarget)
 	if opts.IsTTY {
 		// Piped output keeps raw names so scripts see the real file.
 		name = sanitizeName(name)

@@ -289,6 +289,7 @@ func run(cfg *Flags) error {
 		Width:           terminalWidth(interactive),
 		Columns:         buildColumns(cfg, userCfg),
 		GitColorEntries: userCfg.Git.ColorEntries,
+		ShowLinkTarget:  userCfg.Render.ShowLinkTarget,
 	}
 
 	blocks, errs := listing.List(expanded, listOpts)

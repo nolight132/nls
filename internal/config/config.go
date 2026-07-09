@@ -58,6 +58,11 @@ type GitConfig struct {
 	ColorEntries bool `toml:"color_entries"`
 }
 
+type RenderConfig struct {
+	// ShowLinkTarget shows the link target of symlinks in the table.
+	ShowLinkTarget bool `toml:"expand_symlinks"`
+}
+
 // Config is the nls user configuration loaded from XDG paths.
 type Config struct {
 	// Icons enables Nerd Font icons by default. --no-icons still
@@ -69,6 +74,8 @@ type Config struct {
 	DefaultColumns []ColumnEntry `toml:"default_columns"`
 	// Git holds defaults for the -g git status column.
 	Git GitConfig `toml:"git"`
+	// Render holds defaults for the rendering of the table.
+	Render RenderConfig `toml:"render"`
 }
 
 // Defaults returns the configuration used when no file is present.
@@ -91,6 +98,9 @@ func Defaults() Config {
 		},
 		Git: GitConfig{
 			ColorEntries: true,
+		},
+		Render: RenderConfig{
+			ShowLinkTarget: false,
 		},
 	}
 }

@@ -12,6 +12,9 @@ func visibleWidth(s string) int {
 }
 
 func stripANSI(s string) string {
+	if strings.IndexByte(s, '\x1b') < 0 {
+		return s
+	}
 	var b strings.Builder
 	b.Grow(len(s))
 	for i := 0; i < len(s); {

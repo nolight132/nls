@@ -84,23 +84,24 @@ func renderPlainColumns(w io.Writer, entries []listing.Entry, opts RenderOptions
 		}
 		rows = append(rows, row)
 	}
+	rowWidths := measureRows(rows)
 
 	widths := make([]int, len(cols))
-	for i := range cols {
-		for _, row := range rows {
-			if w := visibleWidth(row[i]); w > widths[i] {
-				widths[i] = w
+	for ri := range rows {
+		for i, cw := range rowWidths[ri] {
+			if cw > widths[i] {
+				widths[i] = cw
 			}
 		}
 	}
 
-	for _, row := range rows {
+	for ri, row := range rows {
 		var b strings.Builder
 		for i, cell := range row {
 			if i > 0 {
 				b.WriteString("  ")
 			}
-			b.WriteString(alignCell(cell, widths[i], cols[i].align))
+			b.WriteString(alignCell(cell, rowWidths[ri][i], widths[i], cols[i].align))
 		}
 		b.WriteByte('\n')
 		if _, err := w.Write([]byte(b.String())); err != nil {

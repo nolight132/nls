@@ -27,8 +27,9 @@ type tableColumn struct {
 	centerHeader bool
 	// flex marks the column that shrinks when the table exceeds the
 	// terminal width.
-	flex  bool
-	width int
+	flex        bool
+	width       int
+	headerWidth int
 	// subDivider is the display offset of a vertical rule inside the
 	// column's cells (the git status separator); -1 when the column has
 	// none. Horizontal borders hook into it with ┬ and ┴.
@@ -151,12 +152,14 @@ func buildTableColumns(opts RenderOptions, styles *termcolor.Style) []tableColum
 		if name == "git" {
 			subDivider = 1
 		}
+		header := styles.Header(spec.header)
 		cols = append(cols, tableColumn{
-			header:       styles.Header(spec.header),
+			header:       header,
 			align:        spec.align,
 			centerHeader: spec.centerHeader,
 			flex:         name == "name",
 			subDivider:   subDivider,
+			headerWidth:  visibleWidth(header),
 			render:       spec.render,
 		})
 	}
@@ -200,7 +203,7 @@ func renderEmptyTable(w io.Writer, styles *termcolor.Style) {
 	emptyCols := []tableColumn{{header: "", width: 10, subDivider: -1}}
 	emptyMessage := styles.Empty("no entries")
 	writeBorderTop(&b, emptyCols)
-	writeDataRow(&b, emptyCols, []string{emptyMessage})
+	writeDataRow(&b, emptyCols, []string{emptyMessage}, []int{visibleWidth(emptyMessage)})
 	writeBorderBottom(&b, emptyCols)
 	fmt.Fprint(w, b.String())
 }
@@ -219,27 +222,42 @@ func tableDisplayName(e listing.Entry, opts RenderOptions) string {
 }
 
 func buildBorderedTable(cols []tableColumn, rows [][]string, limit int) string {
-	computeWidths(cols, rows)
-	fitWidths(cols, rows, limit)
+	widths := measureRows(rows)
+	computeWidths(cols, widths)
+	fitWidths(cols, rows, widths, limit)
 
 	var b strings.Builder
 	writeBorderTop(&b, cols)
 	writeHeaderRow(&b, cols)
 	writeBorderMid(&b, cols)
-	for _, row := range rows {
-		writeDataRow(&b, cols, row)
+	for ri, row := range rows {
+		writeDataRow(&b, cols, row, widths[ri])
 	}
 	writeBorderBottom(&b, cols)
 	return b.String()
 }
 
-func computeWidths(cols []tableColumn, rows [][]string) {
-	for i := range cols {
-		cols[i].width = visibleWidth(cols[i].header)
+// measureRows caches every cell's display width so alignment and fitting
+// never re-strip ANSI from the same string.
+func measureRows(rows [][]string) [][]int {
+	widths := make([][]int, len(rows))
+	for ri, row := range rows {
+		rw := make([]int, len(row))
+		for ci, cell := range row {
+			rw[ci] = visibleWidth(cell)
+		}
+		widths[ri] = rw
 	}
-	for _, row := range rows {
-		for i, cell := range row {
-			if w := visibleWidth(cell); w > cols[i].width {
+	return widths
+}
+
+func computeWidths(cols []tableColumn, widths [][]int) {
+	for i := range cols {
+		cols[i].width = cols[i].headerWidth
+	}
+	for _, rw := range widths {
+		for i, w := range rw {
+			if w > cols[i].width {
 				cols[i].width = w
 			}
 		}
@@ -251,7 +269,7 @@ const minFlexWidth = 8
 
 // fitWidths shrinks the flex column and truncates its cells so the
 // rendered table fits within limit display cells.
-func fitWidths(cols []tableColumn, rows [][]string, limit int) {
+func fitWidths(cols []tableColumn, rows [][]string, widths [][]int, limit int) {
 	if limit <= 0 {
 		return
 	}
@@ -270,15 +288,19 @@ func fitWidths(cols []tableColumn, rows [][]string, limit int) {
 		return
 	}
 	width := cols[flexIdx].width - (total - limit)
-	if min := max(minFlexWidth, visibleWidth(cols[flexIdx].header)); width < min {
+	if min := max(minFlexWidth, cols[flexIdx].headerWidth); width < min {
 		width = min
 	}
 	if width >= cols[flexIdx].width {
 		return
 	}
 	cols[flexIdx].width = width
-	for _, row := range rows {
+	for ri, row := range rows {
+		if widths[ri][flexIdx] <= width {
+			continue
+		}
 		row[flexIdx] = truncateANSI(row[flexIdx], width)
+		widths[ri][flexIdx] = visibleWidth(row[flexIdx])
 	}
 }
 
@@ -346,27 +368,27 @@ func writeHeaderRow(b *strings.Builder, cols []tableColumn) {
 			align = alignCenter
 		}
 		b.WriteString(" ")
-		b.WriteString(alignCell(col.header, col.width, align))
+		b.WriteString(alignCell(col.header, col.headerWidth, col.width, align))
 		b.WriteString(" ")
 	}
 	b.WriteString("│\n")
 }
 
-func writeDataRow(b *strings.Builder, cols []tableColumn, row []string) {
+func writeDataRow(b *strings.Builder, cols []tableColumn, row []string, widths []int) {
 	b.WriteRune('│')
 	for i, cell := range row {
 		if i > 0 {
 			b.WriteRune('│')
 		}
 		b.WriteString(" ")
-		b.WriteString(alignCell(cell, cols[i].width, cols[i].align))
+		b.WriteString(alignCell(cell, widths[i], cols[i].width, cols[i].align))
 		b.WriteString(" ")
 	}
 	b.WriteString("│\n")
 }
 
-func alignCell(cell string, width int, align cellAlign) string {
-	pad := width - visibleWidth(cell)
+func alignCell(cell string, cellWidth, width int, align cellAlign) string {
+	pad := width - cellWidth
 	if pad <= 0 {
 		return cell
 	}

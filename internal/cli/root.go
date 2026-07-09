@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -164,7 +165,11 @@ func run(cfg *Flags) error {
 	for _, e := range errs {
 		output.WriteError(e, suggest)
 	}
-	return output.Render(os.Stdout, blocks, outOpts)
+	out := bufio.NewWriter(os.Stdout)
+	if err := output.Render(out, blocks, outOpts); err != nil {
+		return err
+	}
+	return out.Flush()
 }
 
 func loadUserConfig(w io.Writer) config.Config {

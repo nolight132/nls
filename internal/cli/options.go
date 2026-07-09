@@ -53,36 +53,37 @@ func buildListOptions(cfg *Flags, userCfg config.Config, interactive bool) listi
 	}
 }
 
-func buildColumns(cfg *Flags, userCfg config.Config) []string {
-	cols := make([]string, 0, len(userCfg.DefaultColumns)+4)
-	seen := make(map[string]bool, len(userCfg.DefaultColumns)+4)
+func buildColumns(flags *Flags, userCfg config.Config) []string {
+	type optional struct {
+		column config.ColumnEntry
+		flag   bool
+	}
+	opt := []optional{
+		{column: config.ColumnInode, flag: flags.Inode},
+		{column: config.ColumnBlocks, flag: flags.Blocks},
+		{column: config.ColumnPermissions, flag: flags.Long},
+		{column: config.ColumnOwner, flag: flags.Long},
+		{column: config.ColumnGitStatus, flag: flags.GitStatus},
+	}
+	cols := make([]string, 0, len(userCfg.DefaultColumns)+len(opt))
+	seen := make(map[config.ColumnEntry]bool, len(userCfg.DefaultColumns)+len(opt))
 	for _, c := range userCfg.DefaultColumns {
 		s := string(c)
 		if s == string(config.ColumnModified) {
-			s = timeColumn(cfg)
+			s = timeColumn(flags)
 		}
-		if !seen[s] {
+		if !seen[config.ColumnEntry(s)] {
 			cols = append(cols, s)
-			seen[s] = true
+			seen[config.ColumnEntry(s)] = true
 		}
 	}
-	if cfg.Inode && !seen[string(config.ColumnInode)] {
-		cols = append(cols, string(config.ColumnInode))
-	}
-	if cfg.Blocks && !seen[string(config.ColumnBlocks)] {
-		cols = append(cols, string(config.ColumnBlocks))
-	}
-	if cfg.Long {
-		if !seen[string(config.ColumnPermissions)] {
-			cols = append(cols, string(config.ColumnPermissions))
-		}
-		if !seen[string(config.ColumnOwner)] {
-			cols = append(cols, string(config.ColumnOwner))
+	for _, o := range opt {
+		if o.flag && !seen[o.column] {
+			cols = append(cols, string(o.column))
+			seen[o.column] = true
 		}
 	}
-	if cfg.GitStatus && !seen[string(config.ColumnGitStatus)] {
-		cols = append(cols, string(config.ColumnGitStatus))
-	}
+
 	return cols
 }
 

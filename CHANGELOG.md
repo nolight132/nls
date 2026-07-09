@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.7.1
+
+- Fixed `-l` to also show the `owner` column; it previously showed only `permissions`. (Issue #4)
+- Improved internal code quality with minor refactors.
+
 ## v0.7.0
 
 - Made listings dramatically faster across the common interactive and scripted paths, especially in larger directories and color/icon-heavy output. No user-facing behavior changed; this release is focused on speed and responsiveness.

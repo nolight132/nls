@@ -72,8 +72,13 @@ func buildColumns(cfg *Flags, userCfg config.Config) []string {
 	if cfg.Blocks && !seen[string(config.ColumnBlocks)] {
 		cols = append(cols, string(config.ColumnBlocks))
 	}
-	if cfg.Long && !seen[string(config.ColumnPermissions)] {
-		cols = append(cols, string(config.ColumnPermissions))
+	if cfg.Long {
+		if !seen[string(config.ColumnPermissions)] {
+			cols = append(cols, string(config.ColumnPermissions))
+		}
+		if !seen[string(config.ColumnOwner)] {
+			cols = append(cols, string(config.ColumnOwner))
+		}
 	}
 	if cfg.GitStatus && !seen[string(config.ColumnGitStatus)] {
 		cols = append(cols, string(config.ColumnGitStatus))

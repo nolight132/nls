@@ -133,10 +133,24 @@ func plainMode(cfg *Flags) output.PlainMode {
 
 // useTable is true on a TTY unless the user asks for a different output shape.
 func useTable(cfg *Flags, isTTY bool) bool {
-	if !isTTY || cfg.JSON {
+	if cfg.Table {
+		return true
+	}
+	if !isTTY || cfg.JSON || cfg.Plain {
 		return false
 	}
 	if cfg.Commas || cfg.One {
+		return false
+	}
+	return true
+}
+
+// useColor is true on a TTY unless the user asks for a different output shape.
+func useColor(cfg *Flags, isTTY bool) bool {
+	if cfg.NoColor {
+		return false
+	}
+	if !isTTY && cfg.Table {
 		return false
 	}
 	return true

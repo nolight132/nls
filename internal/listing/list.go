@@ -6,7 +6,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
+	"sync"
+	"sync/atomic"
 )
 
 const (
@@ -188,18 +191,29 @@ func readDirAt(dir string, opts ListOptions, errs *[]error) ([]Entry, error) {
 		return nil, err
 	}
 
-	out := make([]Entry, 0, len(entries))
+	kept := entries[:0]
 	for _, e := range entries {
-		if !includeName(e.Name(), opts) {
+		if includeName(e.Name(), opts) {
+			kept = append(kept, e)
+		}
+	}
+
+	results := make([]classified, len(kept))
+	forEachIndex(len(kept), func(i int) {
+		entry, err := classify(dir, kept[i], opts)
+		results[i] = classified{entry: entry, err: err, placeholder: err != nil}
+	})
+
+	out := make([]Entry, 0, len(kept))
+	for i, r := range results {
+		if r.err != nil {
+			*errs = append(*errs, r.err)
+			if r.placeholder {
+				out = append(out, placeholderEntry(kept[i].Name(), kept[i].Type()))
+			}
 			continue
 		}
-		entry, err := classify(dir, e, opts)
-		if err != nil {
-			*errs = append(*errs, err)
-			out = append(out, placeholderEntry(e.Name(), e.Type()))
-			continue
-		}
-		out = append(out, entry)
+		out = append(out, r.entry)
 	}
 
 	if opts.All {
@@ -234,24 +248,35 @@ func readDirAtUnsorted(dir string, opts ListOptions, errs *[]error) ([]Entry, er
 		return nil, err
 	}
 
-	out := make([]Entry, 0, len(names))
+	kept := names[:0]
 	for _, name := range names {
-		if !includeName(name, opts) {
-			continue
+		if includeName(name, opts) {
+			kept = append(kept, name)
 		}
-		full := childPath(dir, name)
+	}
+
+	results := make([]classified, len(kept))
+	forEachIndex(len(kept), func(i int) {
+		full := childPath(dir, kept[i])
 		info, err := statPath(full, opts.Dereference)
 		if err != nil {
-			*errs = append(*errs, err)
-			out = append(out, placeholderEntry(name, 0))
+			results[i] = classified{err: err, placeholder: true}
+			return
+		}
+		entry, err := entryFromInfo(full, kept[i], info, opts)
+		results[i] = classified{entry: entry, err: err}
+	})
+
+	out := make([]Entry, 0, len(kept))
+	for i, r := range results {
+		if r.err != nil {
+			*errs = append(*errs, r.err)
+			if r.placeholder {
+				out = append(out, placeholderEntry(kept[i], 0))
+			}
 			continue
 		}
-		entry, err := entryFromInfo(full, name, info, opts)
-		if err != nil {
-			*errs = append(*errs, err)
-			continue
-		}
-		out = append(out, entry)
+		out = append(out, r.entry)
 	}
 
 	if opts.EstimateSizes {
@@ -324,6 +349,45 @@ func entryFromInfo(fullPath, name string, info fs.FileInfo, opts ListOptions) (E
 	}
 
 	return entry, nil
+}
+
+type classified struct {
+	entry Entry
+	err   error
+	// placeholder keeps the name visible when its metadata cannot be read.
+	placeholder bool
+}
+
+// parallelClassifyMin is the directory size below which goroutine setup
+// costs more than overlapping the per-entry stat syscalls saves.
+const parallelClassifyMin = 64
+
+// forEachIndex runs fn for 0..n-1, fanning out across CPUs for large n.
+// Results must be written to distinct, index-addressed slots.
+func forEachIndex(n int, fn func(int)) {
+	workers := min(n, runtime.NumCPU())
+	if n < parallelClassifyMin || workers <= 1 {
+		for i := range n {
+			fn(i)
+		}
+		return
+	}
+	var next atomic.Int64
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for range workers {
+		go func() {
+			defer wg.Done()
+			for {
+				i := int(next.Add(1)) - 1
+				if i >= n {
+					return
+				}
+				fn(i)
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 // placeholderEntry keeps a name visible when its metadata cannot be read.

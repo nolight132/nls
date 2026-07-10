@@ -267,6 +267,8 @@ enabled = false
 ## Colors
 
 `nls` uses terminal-friendly ANSI colors and reads `LS_COLORS` when available.
+Colors are limited to interactive terminals; `--no-color` or a non-empty
+`NO_COLOR` environment variable disables them everywhere.
 
 Default highlights:
 

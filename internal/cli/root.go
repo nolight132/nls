@@ -50,8 +50,19 @@ type Flags struct {
 	Table       bool
 }
 
-// Root returns the root cobra command.
-func Root() *cobra.Command {
+// Execute runs the root command and returns the process exit code.
+func Execute() int {
+	exit := 0
+	if err := root(&exit).Execute(); err != nil {
+		output.WriteError(err, output.StderrIsTTY())
+		return 1
+	}
+	return exit
+}
+
+// root returns the root cobra command; the exit code from run is
+// written to exit because RunE can only return an error.
+func root(exit *int) *cobra.Command {
 	cfg := &Flags{}
 	var unsortedF bool
 
@@ -70,7 +81,9 @@ func Root() *cobra.Command {
 				cfg.Unsorted = true
 				cfg.All = true
 			}
-			return run(cfg)
+			var err error
+			*exit, err = run(cfg)
+			return err
 		},
 	}
 
@@ -112,7 +125,7 @@ func Root() *cobra.Command {
 	return cmd
 }
 
-func run(cfg *Flags) error {
+func run(cfg *Flags) (int, error) {
 	userCfg := loadUserConfig(os.Stderr)
 
 	paths := cfg.Paths
@@ -124,7 +137,7 @@ func run(cfg *Flags) error {
 	for _, raw := range paths {
 		p, err := pathutil.Expand(raw)
 		if err != nil {
-			return err
+			return 1, err
 		}
 		expanded = append(expanded, p)
 	}
@@ -167,9 +180,15 @@ func run(cfg *Flags) error {
 	}
 	out := bufio.NewWriter(os.Stdout)
 	if err := output.Render(out, blocks, outOpts); err != nil {
-		return err
+		return 1, err
 	}
-	return out.Flush()
+	if err := out.Flush(); err != nil {
+		return 1, err
+	}
+	if len(errs) > 0 {
+		return 1, nil
+	}
+	return 0, nil
 }
 
 func loadUserConfig(w io.Writer) config.Config {

@@ -13,7 +13,8 @@ import (
 )
 
 func TestVersionFlag(t *testing.T) {
-	cmd := Root()
+	exit := 0
+	cmd := root(&exit)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
@@ -67,6 +68,17 @@ func TestUseTableRejectsAlternateOutputShapes(t *testing.T) {
 	}
 	if useTable(&Flags{}, false) {
 		t.Fatal("non-TTY output should not use table output")
+	}
+}
+
+func TestRunReportsListingFailure(t *testing.T) {
+	cfg := &Flags{Paths: []string{filepath.Join(t.TempDir(), "missing")}}
+	if code, err := run(cfg); err != nil || code != 1 {
+		t.Fatalf("run = %d, %v; want 1, nil", code, err)
+	}
+	cfg = &Flags{Paths: []string{t.TempDir()}}
+	if code, err := run(cfg); err != nil || code != 0 {
+		t.Fatalf("run = %d, %v; want 0, nil", code, err)
 	}
 }
 

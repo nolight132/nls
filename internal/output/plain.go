@@ -63,6 +63,13 @@ func plainName(e listing.Entry, opts RenderOptions) string {
 	if opts.IsTTY {
 		name = sanitizeName(name)
 	}
+	// ls prefixes "inode blocks name" in every output format.
+	if opts.ShowBlocks {
+		name = fmt.Sprintf("%d %s", e.Blocks, name)
+	}
+	if opts.ShowInode {
+		name = fmt.Sprintf("%d %s", e.Inode, name)
+	}
 	return name
 }
 

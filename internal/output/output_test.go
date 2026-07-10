@@ -40,6 +40,19 @@ func TestRenderPlain(t *testing.T) {
 	}
 }
 
+func TestRenderPlainInodeBlocks(t *testing.T) {
+	entries := []listing.Entry{{Name: "a", Inode: 42, Blocks: 8}}
+	var buf bytes.Buffer
+	if err := Render(&buf, blocks(entries...), RenderOptions{
+		IsTTY: false, Plain: PlainOne, ShowInode: true, ShowBlocks: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if buf.String() != "42 8 a\n" {
+		t.Fatalf("got %q, want inode blocks name", buf.String())
+	}
+}
+
 func TestRenderPlainLong(t *testing.T) {
 	now := time.Date(2026, 6, 20, 12, 0, 0, 0, time.UTC)
 	entries := []listing.Entry{{

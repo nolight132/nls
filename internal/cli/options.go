@@ -158,7 +158,7 @@ func useTable(cfg *Flags, isTTY bool) bool {
 
 // useColor is true on a TTY unless colors are disabled explicitly.
 func useColor(cfg *Flags, isTTY bool) bool {
-	if cfg.NoColor {
+	if cfg.NoColor || os.Getenv("NO_COLOR") != "" {
 		return false
 	}
 	return isTTY

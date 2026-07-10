@@ -71,6 +71,7 @@ func TestUseTableRejectsAlternateOutputShapes(t *testing.T) {
 }
 
 func TestUseColorOnlyOnTTY(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
 	for _, cfg := range []*Flags{{}, {Long: true}, {Table: true}} {
 		if useColor(cfg, false) {
 			t.Fatalf("%+v should not color non-TTY output", cfg)
@@ -81,6 +82,10 @@ func TestUseColorOnlyOnTTY(t *testing.T) {
 	}
 	if useColor(&Flags{NoColor: true}, true) {
 		t.Fatal("--no-color should disable colors on a TTY")
+	}
+	t.Setenv("NO_COLOR", "1")
+	if useColor(&Flags{}, true) {
+		t.Fatal("NO_COLOR should disable colors on a TTY")
 	}
 }
 

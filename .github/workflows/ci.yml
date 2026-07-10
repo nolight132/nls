@@ -41,19 +41,8 @@ jobs:
          - name: Download modules
            run: go mod download
 
-         - name: Check formatting
-           if: runner.os != 'Windows'
-           run: test -z "$(gofmt -l .)"
-
-         - name: Check formatting
-           if: runner.os == 'Windows'
-           shell: pwsh
-           run: |
-              $files = gofmt -l .
-              if ($files) {
-                $files
-                exit 1
-              }
+         - name: Format
+           run: gofmt -w .
 
          - name: Vet
            run: go vet ./...

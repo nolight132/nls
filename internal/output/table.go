@@ -214,8 +214,9 @@ func tableDisplayName(e listing.Entry, opts RenderOptions) string {
 		showLinkTarget = true
 	}
 	name := listing.DisplayName(e, opts.Classify, opts.DirSlash, opts.QuoteName, showLinkTarget)
-	if opts.IsTTY {
-		// Piped output keeps raw names so scripts see the real file.
+	if opts.IsTTY || opts.UseTable {
+		// Tables are presentation-only, so control characters are hidden
+		// even when piped; plain piped output keeps raw names for scripts.
 		name = sanitizeName(name)
 	}
 	return icons.For(e, opts.IconSet) + name

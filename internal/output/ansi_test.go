@@ -59,6 +59,24 @@ func TestTableCJKBorderAlignment(t *testing.T) {
 	}
 }
 
+func TestPipedTableSanitizesControlChars(t *testing.T) {
+	entries := []listing.Entry{
+		{Name: "bad\x1b[31mname", Kind: listing.KindFile},
+		{Name: "two\nlines", Kind: listing.KindFile},
+	}
+	var buf bytes.Buffer
+	if err := Render(&buf, []listing.Block{{Entries: entries}}, RenderOptions{
+		UseTable: true, IsTTY: false, Color: false,
+		Columns: []string{"name"},
+		Now:     time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.ContainsAny(buf.String(), "\x1b\t") || strings.Contains(buf.String(), "two\nlines") {
+		t.Errorf("piped table leaked control characters:\n%s", buf.String())
+	}
+}
+
 func TestStripANSINonSGR(t *testing.T) {
 	sgr := "\x1b[31mred\x1b[0m"
 	if got := stripANSI(sgr); got != "red" {

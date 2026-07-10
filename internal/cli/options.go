@@ -156,15 +156,12 @@ func useTable(cfg *Flags, isTTY bool) bool {
 	return true
 }
 
-// useColor is true on a TTY unless the user asks for a different output shape.
+// useColor is true on a TTY unless colors are disabled explicitly.
 func useColor(cfg *Flags, isTTY bool) bool {
 	if cfg.NoColor {
 		return false
 	}
-	if !isTTY && cfg.Table {
-		return false
-	}
-	return true
+	return isTTY
 }
 
 // terminalWidth returns the stdout terminal width for table capping,

@@ -70,6 +70,20 @@ func TestUseTableRejectsAlternateOutputShapes(t *testing.T) {
 	}
 }
 
+func TestUseColorOnlyOnTTY(t *testing.T) {
+	for _, cfg := range []*Flags{{}, {Long: true}, {Table: true}} {
+		if useColor(cfg, false) {
+			t.Fatalf("%+v should not color non-TTY output", cfg)
+		}
+	}
+	if !useColor(&Flags{Long: true}, true) {
+		t.Fatal("TTY output should be colored")
+	}
+	if useColor(&Flags{NoColor: true}, true) {
+		t.Fatal("--no-color should disable colors on a TTY")
+	}
+}
+
 func TestInteractiveUsesBoundedEstimateWhenConfigEnabled(t *testing.T) {
 	opts := buildListOptions(&Flags{}, config.Defaults(), true)
 	if opts.EstimateDepth != listing.EstimateDepthBounded {

@@ -7,7 +7,8 @@ import (
 	"strings"
 )
 
-// Expand resolves ~ and cleans the path.
+// Expand resolves ~ and cleans the path. A trailing separator is kept so
+// downstream stats follow a final symlink (POSIX "link/").
 func Expand(raw string) (string, error) {
 	if raw == "" {
 		_, err := os.Lstat(raw)
@@ -22,8 +23,15 @@ func Expand(raw string) (string, error) {
 		if raw == "~" {
 			return home, nil
 		}
-		return filepath.Join(home, raw[2:]), nil
+		return keepTrailingSep(raw, filepath.Join(home, raw[2:])), nil
 	}
 
-	return filepath.Clean(raw), nil
+	return keepTrailingSep(raw, filepath.Clean(raw)), nil
+}
+
+func keepTrailingSep(raw, cleaned string) string {
+	if os.IsPathSeparator(raw[len(raw)-1]) && !os.IsPathSeparator(cleaned[len(cleaned)-1]) {
+		return cleaned + string(os.PathSeparator)
+	}
+	return cleaned
 }

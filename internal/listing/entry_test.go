@@ -101,3 +101,44 @@ func TestFormatPermissions(t *testing.T) {
 		}
 	}
 }
+
+func TestSymlinkToDirOperand(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "real"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "real", "inside.txt"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "dirlink")
+	if err := os.Symlink("real", link); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name string
+		path string
+		opts ListOptions
+	}{
+		{"bare operand", link, ListOptions{}},
+		{"trailing slash", link + "/", ListOptions{LongListing: true}},
+	} {
+		blocks, errs := List([]string{tc.path}, tc.opts)
+		if len(errs) > 0 {
+			t.Fatalf("%s: errs = %v", tc.name, errs)
+		}
+		if len(blocks) != 1 || len(blocks[0].Entries) != 1 || blocks[0].Entries[0].Name != "inside.txt" {
+			t.Fatalf("%s: got %#v, want target contents", tc.name, blocks)
+		}
+	}
+
+	for _, opts := range []ListOptions{{Directory: true}, {LongListing: true}, {Classify: true}} {
+		blocks, errs := List([]string{link}, opts)
+		if len(errs) > 0 {
+			t.Fatalf("%+v: errs = %v", opts, errs)
+		}
+		if len(blocks) != 1 || len(blocks[0].Entries) != 1 || blocks[0].Entries[0].Kind != KindSymlink {
+			t.Fatalf("%+v: got %#v, want the link itself", opts, blocks)
+		}
+	}
+}

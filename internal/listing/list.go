@@ -73,10 +73,18 @@ func List(paths []string, opts ListOptions) ([]Block, []error) {
 	for _, raw := range paths {
 		path := filepath.Clean(raw)
 
-		info, err := statPath(path, opts.Dereference)
+		info, err := statPath(operandStatPath(raw, path), opts.Dereference)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", raw, err))
 			continue
+		}
+		// ls dereferences symlink-to-directory operands unless -d, -l, or
+		// -F asks about the link itself.
+		if info.Mode()&fs.ModeSymlink != 0 &&
+			!opts.Directory && !opts.LongListing && !opts.Classify {
+			if target, terr := os.Stat(path); terr == nil && target.IsDir() {
+				info = target
+			}
 		}
 		entry, err := entryFromInfo(path, path, info, opts)
 		if err != nil {
@@ -301,6 +309,15 @@ func appendDotEntries(dir string, entries []Entry) []Entry {
 	dot := BlockDotEntry(dir, ".")
 	dotdot := BlockDotEntry(childPath(dir, ".."), "..")
 	return append([]Entry{dot, dotdot}, entries...)
+}
+
+// operandStatPath keeps a trailing separator from the raw argument so the
+// stat follows a final symlink: POSIX says "link/" refers to the directory.
+func operandStatPath(raw, cleaned string) string {
+	if raw != "" && os.IsPathSeparator(raw[len(raw)-1]) && cleaned != string(os.PathSeparator) {
+		return cleaned + string(os.PathSeparator)
+	}
+	return cleaned
 }
 
 func statPath(path string, dereference bool) (fs.FileInfo, error) {

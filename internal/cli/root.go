@@ -28,6 +28,7 @@ type Flags struct {
 	SortSize    bool
 	SortExt     bool
 	Unsorted    bool
+	Fast        bool
 	Directory   bool
 	Classify    bool
 	DirSlash    bool
@@ -64,7 +65,6 @@ func Execute() int {
 // written to exit because RunE can only return an error.
 func root(exit *int) *cobra.Command {
 	cfg := &Flags{}
-	var unsortedF bool
 
 	cmd := &cobra.Command{
 		Use:           "nls [path...]",
@@ -76,11 +76,6 @@ func root(exit *int) *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg.Paths = args
-			if unsortedF {
-				// POSIX -f: unsorted and all entries.
-				cfg.Unsorted = true
-				cfg.All = true
-			}
 			var err error
 			*exit, err = run(cfg)
 			return err
@@ -99,7 +94,7 @@ func root(exit *int) *cobra.Command {
 	cmd.Flags().BoolVarP(&cfg.SortSize, "size", "S", false, "sort by file size")
 	cmd.Flags().BoolVarP(&cfg.SortExt, "extension", "X", false, "sort alphabetically by extension")
 	cmd.Flags().BoolVarP(&cfg.Unsorted, "unsorted", "U", false, "do not sort")
-	cmd.Flags().BoolVarP(&unsortedF, "fast", "f", false, "do not sort, list all entries (as -aU)")
+	cmd.Flags().BoolVarP(&cfg.Fast, "fast", "f", false, "do not sort, list all entries (as -aU)")
 	cmd.Flags().BoolVarP(&cfg.Directory, "directory", "d", false, "list directories themselves, not contents")
 	cmd.Flags().BoolVarP(&cfg.Classify, "classify", "F", false, "append indicator (one of */=>@|)")
 	cmd.Flags().BoolVarP(&cfg.DirSlash, "slash", "p", false, "append / to directory names")

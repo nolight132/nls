@@ -30,7 +30,7 @@ func buildListOptions(cfg *Flags, userCfg config.Config, interactive bool) listi
 	return listing.ListOptions{
 		DirSizeDepth:      userCfg.DirSize.DefaultDepth,
 		DirSizeTiming:     userCfg.DirSize.Timing,
-		All:               cfg.All,
+		All:               cfg.All || cfg.Fast,
 		AlmostAll:         cfg.AlmostAll,
 		IgnoreBackups:     cfg.IgnoreBack,
 		Dereference:       cfg.Dereference,
@@ -94,7 +94,7 @@ func buildSort(cfg *Flags) listing.SortOptions {
 		TimeField: timeField(cfg),
 	}
 	switch {
-	case cfg.Unsorted:
+	case cfg.Unsorted || cfg.Fast:
 		sort.Field = listing.SortByNone
 	case cfg.SortTime || ((cfg.SortAccess || cfg.SortChange) && !cfg.Long):
 		sort.Field = listing.SortByTime

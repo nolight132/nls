@@ -292,6 +292,12 @@ go test ./...
 go run ./cmd/nls
 ```
 
+One-time setup — enables the pre-commit hook that gofmt-formats staged files:
+
+```bash
+git config core.hooksPath .githooks
+```
+
 Build:
 
 ```bash

@@ -1,0 +1,5 @@
+#!/bin/sh
+# Format the tree and re-stage the staged Go files so commits are always
+# gofmt-clean; unstaged files are formatted in place but stay unstaged.
+gofmt -w .
+git diff --cached --name-only --diff-filter=ACMR -- '*.go' | xargs -r git add

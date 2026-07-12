@@ -57,7 +57,7 @@ func (s *Style) Index(value string) string {
 
 // Name colors a filename using LS_COLORS-compatible rules.
 func (s *Style) Name(name string, kind listing.Kind) string {
-	if !s.enabled || s.styler == nil {
+	if !s.enabled {
 		return name
 	}
 	return s.styler.Colorize(name, kind)

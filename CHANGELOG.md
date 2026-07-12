@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.0
+
+- Added `NO_COLOR` environment-variable support to disable colored output, alongside `--no-color`.
+- Fixed `nls` to exit non-zero when a listing hits a per-path error, instead of always exiting `0` as changed in v0.7.0; the error still prints to stderr.
+- Fixed colored output leaking into piped and `--plain` output; colors now apply only when connected to an interactive terminal, and `--plain` disables them unconditionally.
+- Fixed `--table` output to strip control characters from filenames even when piped, not just on a TTY, preventing raw escape sequences from reaching the output.
+- Fixed `nls <symlink-to-directory>` to list the directory's contents like GNU `ls`, instead of showing the symlink entry itself; `-d`/`--directory`, `-l`/`--long`, and `-F`/`--classify` still show the link itself.
+- Fixed `-i`/`--inode` and `-s`/`--size-blocks` to show their columns in plain output instead of being silently ignored, printing as `<inode> <blocks> <name>`.
+- Improved internal code quality with minor refactors.
+
 ## v0.7.1
 
 - Fixed `-l` to also show the `owner` column; it previously showed only `permissions`. (Issue #4)

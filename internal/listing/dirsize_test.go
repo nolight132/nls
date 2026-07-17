@@ -147,62 +147,36 @@ func findEntry(t *testing.T, entries []Entry, name string) Entry {
 	return Entry{}
 }
 
-func TestSumDirSizeMarksApproxWhenEntryCapExceeded(t *testing.T) {
+func TestSumDirSizeMarksApproxOnExpiredDeadline(t *testing.T) {
 	dir := t.TempDir()
-	cap := 500
-	for i := range cap + 100 {
+	for i := range 100 {
 		if err := os.WriteFile(filepath.Join(dir, "f"+strconv.Itoa(i)), []byte("x"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	got := sumDirSize(dir, time.Time{}, false, 0, 0, 0, cap)
+	got := sumDirSize(dir, time.Now().Add(-time.Millisecond), 0)
 	if !got.approx {
-		t.Fatal("should mark approx when entry cap is exceeded")
+		t.Fatal("should mark approx when the deadline has passed")
 	}
 }
 
-func TestEstimateDirectorySizesMarksSkippedDirsApprox(t *testing.T) {
-	dir := t.TempDir()
-	// Strict timing caps MaxDirsPerListing at 4; dirs 5-6 are never
-	// walked and must be flagged so their stat size reads as a lower bound.
-	entries := make([]Entry, 0, 6)
-	for i := range 6 {
-		name := "d" + strconv.Itoa(i)
-		sub := filepath.Join(dir, name)
-		if err := os.Mkdir(sub, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(sub, "a.txt"), []byte("x"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		entries = append(entries, Entry{Name: name, Kind: KindDirectory})
+func TestDirSizeBudget(t *testing.T) {
+	cases := map[string]struct {
+		opts ListOptions
+		want time.Duration
+	}{
+		"strict":    {ListOptions{DirSizeTiming: "strict"}, 8 * time.Millisecond},
+		"balanced":  {ListOptions{DirSizeTiming: "balanced"}, 20 * time.Millisecond},
+		"default":   {ListOptions{}, 20 * time.Millisecond},
+		"relaxed":   {ListOptions{DirSizeTiming: "relaxed"}, 100 * time.Millisecond},
+		"unlimited": {ListOptions{DirSizeTiming: "unlimited"}, 0},
+		"precise":   {ListOptions{Precise: true, DirSizeTiming: "strict"}, 0},
 	}
-
-	estimateDirectorySizes(dir, entries, ListOptions{
-		EstimateSizes: true,
-		EstimateDepth: EstimateDepthBounded,
-		DirSizeTiming: "strict",
-	})
-
-	for _, e := range entries[4:] {
-		if !e.SizeApprox {
-			t.Fatalf("%s skipped by dir cap, should be marked approx", e.Name)
+	for name, c := range cases {
+		if got := dirSizeBudget(c.opts); got != c.want {
+			t.Fatalf("%s budget = %v, want %v", name, got, c.want)
 		}
-	}
-}
-
-func TestDirSizeCapsUnlimitedTimingHasNoLimits(t *testing.T) {
-	caps := dirSizeCapsFor(ListOptions{EstimateDepth: EstimateDepthBounded, DirSizeTiming: "unlimited"})
-	if caps != (dirSizeCaps{}) {
-		t.Fatalf("unlimited caps = %+v, want zero caps", caps)
-	}
-}
-
-func TestPreciseIgnoresTimingLimits(t *testing.T) {
-	caps := dirSizeCapsFor(ListOptions{EstimateDepth: EstimateDepthMax, Precise: true, DirSizeDepth: 2, DirSizeTiming: "strict"})
-	if caps != (dirSizeCaps{}) {
-		t.Fatalf("precise caps = %+v, want zero caps", caps)
 	}
 }
 

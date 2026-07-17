@@ -31,8 +31,9 @@ enabled = true
 # 0 = unlimited depth, bounded by the timing preset unless timing = "unlimited".
 default_depth = 0
 
-# Budget preset for default interactive estimates: strict, balanced, relaxed, or unlimited.
-# "unlimited" removes time, entry, and directory caps. May take a while for very large directories.
+# Time budget preset for default interactive estimates, shared across all
+# directories of a listing: strict (8ms), balanced (20ms), relaxed (100ms),
+# or unlimited. May take a while for very large directories when unlimited.
 timing = "balanced"
 
 [git]

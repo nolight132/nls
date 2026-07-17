@@ -153,7 +153,7 @@ Available settings:
 | `icons.special_icons`    | `true`                           | Use filename- and extension-specific icons                                     |
 | `dir_size.enabled`       | `true`                           | Estimate directory sizes in interactive table output                           |
 | `dir_size.default_depth` | `0`                              | Maximum estimation depth; `0` means unlimited depth within the selected budget |
-| `dir_size.timing`        | `balanced`                       | Estimation budget: `strict`, `balanced`, `relaxed`, or `unlimited`             |
+| `dir_size.timing`        | `balanced`                       | Estimation time budget: `strict` (8ms), `balanced` (20ms), `relaxed` (100ms), or `unlimited` |
 | `git.color_entries`      | `true`                           | Color names according to Git state                                             |
 | `render.expand_symlinks` | `false`                          | Show symlink targets in table output; `-l` always shows them                   |
 
@@ -168,14 +168,15 @@ and cause the complete built-in configuration to be used.
 ### Directory sizes
 
 Directory sizes are estimated by default only for interactive table output.
-The configured timing preset and depth bound keep this work limited; a `>`
-prefix marks a size that is only a lower bound because estimation stopped
-early. Plain and JSON output use the directory's filesystem-reported size
-unless `-P`/`--precise` is supplied.
+The timing preset sets one wall-clock budget shared across all directories of
+a listing — each directory claims a fair share of the time left, and unused
+time flows back to the pool — and the depth bound caps how deep each walk
+goes. A `>` prefix marks a size that is only a lower bound because estimation
+stopped early. Plain and JSON output use the directory's filesystem-reported
+size unless `-P`/`--precise` is supplied.
 
-`--precise` recursively computes directory sizes without the configured depth,
-time, entry-count, or directory-count limits. It can take a while on large
-directory trees.
+`--precise` recursively computes directory sizes without the configured depth
+and time limits. It can take a while on large directory trees.
 
 ---
 

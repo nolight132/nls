@@ -110,7 +110,7 @@ func root(exit *int) *cobra.Command {
 	cmd.Flags().BoolVar(&cfg.NoIcons, "no-icons", false, "disable icons")
 	cmd.Flags().BoolVar(&cfg.NoColor, "no-color", false, "disable colors")
 	cmd.Flags().BoolVar(&cfg.JSON, "json", false, "output JSON")
-	cmd.Flags().BoolVarP(&cfg.Precise, "precise", "P", false, "compute exact directory sizes without depth, time, or entry limits")
+	cmd.Flags().BoolVarP(&cfg.Precise, "precise", "P", false, "compute exact directory sizes without depth or time limits")
 	cmd.Flags().BoolVarP(&cfg.GitStatus, "git-status", "g", false, "show git status")
 	cmd.Flags().BoolVar(&cfg.Plain, "plain", false, "output in plain text")
 	cmd.Flags().BoolVar(&cfg.Table, "table", false, "output in table format")

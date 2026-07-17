@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.9.0
+
+- Changed directory-size estimation (`dir_size.timing`) to share a single time budget across all directories in a listing instead of capping how many entries and directories get scanned. Directories that finish early return their unused time to the pool, so large directories get more of it and estimates come out more complete. Preset budgets are now 8ms for `strict`, 20ms for `balanced`, and 100ms for `relaxed`; `unlimited` is unchanged.
+- Fixed `-g`/`--git-status` showing tracked files as ignored when their name matched a `.gitignore` pattern; they now display their actual status. Ignored-entry detection is also faster.
+
 ## v0.8.0
 
 - Added `NO_COLOR` environment-variable support to disable colored output, alongside `--no-color`.

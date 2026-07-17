@@ -73,6 +73,18 @@ func TestGitStatusInSubdirectory(t *testing.T) {
 	if !blocks[0].GitRepo {
 		t.Error("block inside a repo should set GitRepo")
 	}
+	entries := blocks[0].Entries
+	assertGitState(t, entries, "clean.txt", GitState{StatusUnmodified, StatusModified})
+	assertGitState(t, entries, "new.txt", GitState{StatusUntracked, StatusUntracked})
+	assertGitState(t, entries, "debug.log", GitState{StatusIgnored, StatusIgnored})
+	assertGitState(t, entries, "committed.txt", GitState{StatusUnmodified, StatusUnmodified})
+}
+
+func assertGitState(t *testing.T, entries []Entry, name string, want GitState) {
+	t.Helper()
+	if got := findEntry(t, entries, name).GitState; got != want {
+		t.Errorf("%s state = %q, want %q", name, got, want)
+	}
 }
 
 func TestGitStatusGlobalIgnore(t *testing.T) {
@@ -94,6 +106,40 @@ func TestGitStatusGlobalIgnore(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "real.txt"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+
+	blocks, errs := List([]string{root}, ListOptions{GitStatus: true})
+	if len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	assertGitState(t, blocks[0].Entries, "junk.tmp", GitState{StatusIgnored, StatusIgnored})
+	assertGitState(t, blocks[0].Entries, "real.txt", GitState{StatusUntracked, StatusUntracked})
+}
+
+// A tracked file stays part of the worktree even when an ignore pattern
+// matches it, so it must not render as ignored.
+func TestGitStatusTrackedFileMatchingIgnorePattern(t *testing.T) {
+	gitTestEnv(t)
+	root := t.TempDir()
+	gitRun(t, root, "init")
+	if err := os.WriteFile(filepath.Join(root, ".gitignore"), []byte("*.log\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "keep.log"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "debug.log"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, root, "add", "-f", "keep.log")
+	gitRun(t, root, "add", ".gitignore")
+	gitRun(t, root, "commit", "-m", "init")
+
+	blocks, errs := List([]string{root}, ListOptions{GitStatus: true})
+	if len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	assertGitState(t, blocks[0].Entries, "keep.log", GitState{StatusUnmodified, StatusUnmodified})
+	assertGitState(t, blocks[0].Entries, "debug.log", GitState{StatusIgnored, StatusIgnored})
 }
 
 // Listing a directory inside a fully-untracked or fully-ignored tree must
@@ -116,6 +162,18 @@ func TestGitStatusCollapsedDirectories(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+
+	blocks, errs := List([]string{filepath.Join(root, "build", "pkg")}, ListOptions{GitStatus: true})
+	if len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	assertGitState(t, blocks[0].Entries, "f.txt", GitState{StatusIgnored, StatusIgnored})
+
+	blocks, errs = List([]string{filepath.Join(root, "newdir", "inner")}, ListOptions{GitStatus: true})
+	if len(errs) > 0 {
+		t.Fatal(errs)
+	}
+	assertGitState(t, blocks[0].Entries, "f.txt", GitState{StatusUntracked, StatusUntracked})
 }
 
 func TestGitStatusOutsideRepo(t *testing.T) {

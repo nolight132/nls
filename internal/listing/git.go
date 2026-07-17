@@ -2,6 +2,7 @@ package listing
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,8 +58,7 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 
 	// One pass over the status maps (only changed files appear in them;
 	// clean files are absent). Exact keys set the entry directly; nested
-	// keys fold into the directory entry they live under. Ignored children
-	// are skipped when folding so an ignored file cannot dirty its parent.
+	// keys fold into the directory entry they live under.
 	// The zero GitState marks entries not yet decorated: porcelain codes
 	// are always printable bytes, so it cannot occur as a real status.
 	aggs := make(map[int]*GitState)
@@ -73,9 +73,6 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 		}
 		if !nested {
 			entries[i].GitState = s
-			return
-		}
-		if s.Staging == StatusIgnored {
 			return
 		}
 		a := aggs[i]
@@ -98,11 +95,21 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 		}
 	}
 
-	// Entries absent from the status maps are tracked-and-clean unless
-	// they live under a collapsed untracked or ignored directory, which
-	// git reports only as the directory itself. Dot entries get the
-	// neutral cell so the divider line stays unbroken, and .git is shown
-	// ignored without traversing it.
+	// Entries absent from the status maps are tracked-and-clean, ignored
+	// (plain status never lists ignored paths), or under a collapsed
+	// untracked directory, which git reports only as the directory itself.
+	// check-ignore resolves the ignored ones. Dot entries get the neutral
+	// cell so the divider line stays unbroken, and .git is shown ignored
+	// without asking git about it.
+	var unknown []string
+	for i := range entries {
+		e := &entries[i]
+		if e.GitState == (GitState{}) && e.Name != "." && e.Name != ".." && e.Name != ".git" {
+			unknown = append(unknown, e.Name)
+		}
+	}
+	ignored := ignoredNames(absDir, unknown)
+
 	clean := GitState{StatusUnmodified, StatusUnmodified}
 	for i := range entries {
 		e := &entries[i]
@@ -115,7 +122,9 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 		case ".git":
 			e.GitState = GitState{StatusIgnored, StatusIgnored}
 		default:
-			if s, ok := info.collapsed(prefix + e.Name); ok {
+			if ignored[e.Name] {
+				e.GitState = GitState{StatusIgnored, StatusIgnored}
+			} else if s, ok := info.collapsed(prefix + e.Name); ok {
 				e.GitState = s
 			} else {
 				e.GitState = clean
@@ -123,6 +132,49 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 		}
 	}
 	return true
+}
+
+// ignoredNames reports which of the named entries in dir an ignore pattern
+// covers. status --ignored would answer this too, but it enumerates every
+// ignored tree in the repository (node_modules alone can dwarf the tracked
+// checkout), while check-ignore evaluates patterns against just these names.
+// Tracked hits are dropped: git keeps a tracked file in the worktree even
+// when a pattern matches it.
+func ignoredNames(dir string, names []string) map[string]bool {
+	if len(names) == 0 {
+		return nil
+	}
+	cmd := exec.Command("git", "-C", dir, "check-ignore", "--stdin", "-z")
+	cmd.Stdin = strings.NewReader(strings.Join(names, "\x00") + "\x00")
+	out, err := cmd.Output()
+	if err != nil {
+		// Exit status 1 only means no names matched.
+		var ee *exec.ExitError
+		if !errors.As(err, &ee) || ee.ExitCode() != 1 {
+			return nil
+		}
+	}
+
+	var hits []string
+	ignored := make(map[string]bool)
+	for name := range strings.SplitSeq(strings.TrimSuffix(string(out), "\x00"), "\x00") {
+		if name != "" {
+			hits = append(hits, name)
+			ignored[name] = true
+		}
+	}
+	if len(hits) == 0 {
+		return nil
+	}
+
+	args := append([]string{"-C", dir, "ls-files", "-z", "--"}, hits...)
+	if out, err := exec.Command("git", args...).Output(); err == nil {
+		for path := range strings.SplitSeq(string(out), "\x00") {
+			name, _, _ := strings.Cut(path, "/")
+			delete(ignored, name)
+		}
+	}
+	return ignored
 }
 
 // StatusCode is one column of a porcelain-v1 XY pair; the byte is git's
@@ -150,17 +202,17 @@ func (s GitState) MarshalJSON() ([]byte, error) {
 }
 
 type repoGitInfo struct {
-	// files maps repo-root-relative slash paths of changed, untracked, or
-	// ignored files to their porcelain XY pair.
+	// files maps repo-root-relative slash paths of changed or untracked
+	// files to their porcelain XY pair.
 	files map[string]GitState
 	// dirs holds directories git reported collapsed because everything
-	// beneath them is untracked or ignored (trailing "/" stripped); their
-	// contents never appear in files.
+	// beneath them is untracked (trailing "/" stripped); their contents
+	// never appear in files.
 	dirs map[string]GitState
 }
 
-// collapsed reports the status of the collapsed untracked or ignored
-// directory that path is or lives under, if any.
+// collapsed reports the status of the collapsed untracked directory that
+// path is or lives under, if any.
 func (info *repoGitInfo) collapsed(path string) (GitState, bool) {
 	for {
 		if s, ok := info.dirs[path]; ok {
@@ -194,7 +246,7 @@ func findRepoRoot(dir string) string {
 // and indexes its porcelain output.
 func loadRepoGitInfo(root string) *repoGitInfo {
 	out, err := exec.Command("git", "--no-optional-locks", "-C", root,
-		"status", "--porcelain", "-z", "--ignored").Output()
+		"status", "--porcelain", "-z").Output()
 	if err != nil {
 		return nil
 	}

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.11.0
+
+- Added a `--completion` flag that writes a shell completion script (`completion.bash`, `completion.zsh`, `completion.fish`, or `completion.ps1`) to the current directory; it accepts `bash`, `zsh`, `fish`, or `powershell` and can be repeated to generate several at once. It replaces the default `nls completion` subcommand, which has been removed. Homebrew and AUR packages now install the bash, zsh, and fish completions automatically.
+
 ## v0.10.0
 
 - Changed the `#` id column in table output to start at 1 instead of 0. Set `id_starts_at_one = false` under `[render]` to restore the old 0-based numbering. (Issue #5)

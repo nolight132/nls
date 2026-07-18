@@ -49,6 +49,7 @@ type Flags struct {
 	GitStatus   bool
 	Plain       bool
 	Table       bool
+	Completion  []string
 }
 
 // Execute runs the root command and returns the process exit code.
@@ -77,10 +78,12 @@ func root(exit *int) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg.Paths = args
 			var err error
-			*exit, err = run(cfg)
+			*exit, err = run(cmd, cfg)
 			return err
 		},
 	}
+
+	cmd.CompletionOptions.DisableDefaultCmd = true
 
 	cmd.Flags().Bool("help", false, "help for nls")
 	cmd.Flags().BoolVarP(&cfg.All, "all", "a", false, "do not hide entries starting with .")
@@ -115,12 +118,31 @@ func root(exit *int) *cobra.Command {
 	cmd.Flags().BoolVar(&cfg.Plain, "plain", false, "output in plain text")
 	cmd.Flags().BoolVar(&cfg.Table, "table", false, "output in table format")
 	cmd.Flags().BoolP("version", "", false, "version for nls")
+	cmd.Flags().StringArrayVar(&cfg.Completion, "completion", nil, "generate shell completion script")
 	configureHelp(cmd)
 
 	return cmd
 }
 
-func run(cfg *Flags) (int, error) {
+func run(cmd *cobra.Command, cfg *Flags) (int, error) {
+	if cfg.Completion != nil {
+		for _, shell := range cfg.Completion {
+			switch shell {
+			case "fish":
+				cmd.GenFishCompletionFile("completion.fish", true)
+			case "bash":
+				cmd.GenBashCompletionFileV2("completion.bash", true)
+			case "zsh":
+				cmd.GenZshCompletionFile("completion.zsh")
+			case "powershell":
+				cmd.GenPowerShellCompletionFileWithDesc("completion.ps1")
+			default:
+				return 1, fmt.Errorf("unsupported shell: %s", shell)
+			}
+		}
+		return 0, nil
+	}
+
 	userCfg := loadUserConfig(os.Stderr)
 
 	paths := cfg.Paths

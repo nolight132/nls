@@ -14,7 +14,7 @@ and looks beautiful in your terminal.
 </div>
 
 <div align="center">
-    <img width="827" height="591" alt="image" src="https://github.com/user-attachments/assets/b620e799-a1f8-4110-9250-d6f26ea2df74" />
+    <img width="837" height="622" alt="image" src="https://github.com/user-attachments/assets/a2d364a4-049c-4815-8cbb-54fa499e8cec" />
 </div>
 <div align="center">
     <sub>

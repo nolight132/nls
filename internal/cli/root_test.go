@@ -10,6 +10,7 @@ import (
 
 	"github.com/nolight132/nls/internal/config"
 	"github.com/nolight132/nls/internal/listing"
+	"github.com/spf13/cobra"
 )
 
 func TestVersionFlag(t *testing.T) {
@@ -72,12 +73,13 @@ func TestUseTableRejectsAlternateOutputShapes(t *testing.T) {
 }
 
 func TestRunReportsListingFailure(t *testing.T) {
+	cmd := &cobra.Command{}
 	cfg := &Flags{Paths: []string{filepath.Join(t.TempDir(), "missing")}}
-	if code, err := run(cfg); err != nil || code != 1 {
+	if code, err := run(cmd, cfg); err != nil || code != 1 {
 		t.Fatalf("run = %d, %v; want 1, nil", code, err)
 	}
 	cfg = &Flags{Paths: []string{t.TempDir()}}
-	if code, err := run(cfg); err != nil || code != 0 {
+	if code, err := run(cmd, cfg); err != nil || code != 0 {
 		t.Fatalf("run = %d, %v; want 0, nil", code, err)
 	}
 }

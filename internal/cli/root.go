@@ -166,6 +166,7 @@ func run(cfg *Flags) (int, error) {
 		Columns:         buildColumns(cfg, userCfg),
 		GitColorEntries: userCfg.Git.ColorEntries,
 		ShowLinkTarget:  userCfg.Render.ShowLinkTarget,
+		IdFromOne:       userCfg.Render.IdFromOne,
 	}
 
 	blocks, errs := listing.List(expanded, listOpts)

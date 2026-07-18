@@ -61,6 +61,8 @@ type GitConfig struct {
 type RenderConfig struct {
 	// ShowLinkTarget shows the link target of symlinks in the table.
 	ShowLinkTarget bool `toml:"expand_symlinks"`
+	// IdFromOne starts the ID column at 1 instead of 0.
+	IdFromOne bool `toml:"id_starts_at_one"`
 }
 
 // Config is the nls user configuration loaded from XDG paths.
@@ -101,6 +103,7 @@ func Defaults() Config {
 		},
 		Render: RenderConfig{
 			ShowLinkTarget: false,
+			IdFromOne:      true,
 		},
 	}
 }

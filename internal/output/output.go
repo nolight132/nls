@@ -48,6 +48,7 @@ type RenderOptions struct {
 	Columns         []string
 	GitColorEntries bool
 	ShowLinkTarget  bool
+	IdFromOne       bool
 }
 
 // JSONRow is a single entry in JSON output.

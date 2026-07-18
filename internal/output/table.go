@@ -52,7 +52,10 @@ var columnRegistry = map[string]struct {
 }{
 	"id": {
 		header: "#", align: alignRight, centerHeader: true,
-		render: func(e listing.Entry, idx int, ctx renderCtx) string {
+		render: func(_ listing.Entry, idx int, ctx renderCtx) string {
+			if ctx.opts.IdFromOne {
+				idx++
+			}
 			return ctx.styles.Index(strconv.Itoa(idx))
 		},
 	},

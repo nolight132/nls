@@ -207,7 +207,7 @@ func renderEmptyTable(w io.Writer, styles *termcolor.Style) {
 	emptyMessage := styles.Empty("no entries")
 	writeBorderTop(&b, emptyCols)
 	writeDataRow(&b, emptyCols, []string{emptyMessage}, []int{visibleWidth(emptyMessage)})
-	writeBorderBottom(&b, emptyCols)
+	writeBorderBottom(&b, emptyCols, "┴")
 	fmt.Fprint(w, b.String())
 }
 
@@ -233,11 +233,17 @@ func buildBorderedTable(cols []tableColumn, rows [][]string, limit int) string {
 	var b strings.Builder
 	writeBorderTop(&b, cols)
 	writeHeaderRow(&b, cols)
-	writeBorderMid(&b, cols)
+	writeBorderMid(&b, cols, "┬")
 	for ri, row := range rows {
 		writeDataRow(&b, cols, row, widths[ri])
 	}
-	writeBorderBottom(&b, cols)
+	if len(rows) >= footerThreshold {
+		writeBorderMid(&b, cols, "┴")
+		writeHeaderRow(&b, cols)
+		writeBorderBottom(&b, cols, "─")
+	} else {
+		writeBorderBottom(&b, cols, "┴")
+	}
 	return b.String()
 }
 
@@ -270,6 +276,8 @@ func computeWidths(cols []tableColumn, widths [][]int) {
 
 // minFlexWidth keeps a shrunken name column readable.
 const minFlexWidth = 8
+
+const footerThreshold = 25
 
 // fitWidths shrinks the flex column and truncates its cells so the
 // rendered table fits within limit display cells.
@@ -327,26 +335,26 @@ func writeBorderTop(b *strings.Builder, cols []tableColumn) {
 	b.WriteString("╮\n")
 }
 
-func writeBorderMid(b *strings.Builder, cols []tableColumn) {
+func writeBorderMid(b *strings.Builder, cols []tableColumn, junction string) {
 	b.WriteString("├")
 	for i, col := range cols {
 		if i > 0 {
 			b.WriteString("┼")
 		}
-		// ┬ starts the sub-divider here rather than in the top border so
+		// The sub-divider starts here rather than in the top border so
 		// the header text above it stays unbroken.
-		b.WriteString(borderSegment(col, "┬"))
+		b.WriteString(borderSegment(col, junction))
 	}
 	b.WriteString("┤\n")
 }
 
-func writeBorderBottom(b *strings.Builder, cols []tableColumn) {
+func writeBorderBottom(b *strings.Builder, cols []tableColumn, junction string) {
 	b.WriteString("╰")
 	for i, col := range cols {
 		if i > 0 {
 			b.WriteString("┴")
 		}
-		b.WriteString(borderSegment(col, "┴"))
+		b.WriteString(borderSegment(col, junction))
 	}
 	b.WriteString("╯\n")
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.12.0
+
+- Added a repeated header row at the bottom of table output when a listing has 25 or more entries, so column labels stay visible on long tables that scroll past the top.
+
 ## v0.11.0
 
 - Added a `--completion` flag that writes a shell completion script (`completion.bash`, `completion.zsh`, `completion.fish`, or `completion.ps1`) to the current directory; it accepts `bash`, `zsh`, `fish`, or `powershell` and can be repeated to generate several at once. It replaces the default `nls completion` subcommand, which has been removed. Homebrew and AUR packages now install the bash, zsh, and fish completions automatically.

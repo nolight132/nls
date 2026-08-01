@@ -76,6 +76,22 @@ yay -S nls-bin
 brew install nolight132/tap/nls
 ```
 
+### Nix (flakes)
+
+Run without installing:
+
+```bash
+nix run github:nolight132/nls
+```
+
+Install into your profile:
+
+```bash
+nix profile install github:nolight132/nls
+```
+
+Or add it to a NixOS/home-manager config by referencing this repo as a flake input and using its `packages.<system>.default`.
+
 ### Go
 
 ```bash

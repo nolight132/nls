@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.13.0
+
+- Made git status dramatically faster in large repositories. `nls` now asks git only about the directory being listed instead of scanning the whole worktree, resolves ignored entries from one scan instead of one pattern check per entry, and runs both queries while it reads the directory rather than after. In a nixpkgs checkout, listing a subdirectory drops from roughly 160ms to 15ms and a 760-entry directory from roughly 500ms to 90ms; at a repository root the remaining time is git's own worktree scan. Displayed states are unchanged.
+- Fixed git status for listings reached through a symlinked directory, such as `nls link/`: entries now show the state git records for their real path instead of reporting untracked files as clean.
+
 ## v0.12.0
 
 - Added a repeated header row at the bottom of table output when a listing has 25 or more entries, so column labels stay visible on long tables that scroll past the top.

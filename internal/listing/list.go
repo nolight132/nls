@@ -63,11 +63,6 @@ func List(paths []string, opts ListOptions) ([]Block, []error) {
 		paths = []string{"."}
 	}
 
-	var gc gitStatusCache
-	if opts.GitStatus {
-		gc = gitStatusCache{}
-	}
-
 	var errs []error
 	operands := make([]operand, 0, len(paths))
 	for _, raw := range paths {
@@ -93,6 +88,8 @@ func List(paths []string, opts ListOptions) ([]Block, []error) {
 		}
 		operands = append(operands, operand{raw: raw, path: path, info: info, entry: entry})
 	}
+
+	gc := startGitStatus(operands, opts)
 
 	if len(operands) == 1 && len(paths) == 1 {
 		op := operands[0]
@@ -143,9 +140,26 @@ func List(paths []string, opts ListOptions) ([]Block, []error) {
 	return blocks, errs
 }
 
+func startGitStatus(operands []operand, opts ListOptions) *gitStatusCache {
+	if !opts.GitStatus {
+		return nil
+	}
+	dirs := make([]string, 0, len(operands))
+	for _, op := range operands {
+		if op.info.IsDir() && !opts.Directory {
+			dirs = append(dirs, op.path)
+		}
+	}
+	gc := newGitStatusCache(dirs)
+	for _, dir := range dirs {
+		gc.start(dir)
+	}
+	return gc
+}
+
 // dirBlock builds a directory block, decorating entries with git status
 // when a cache was created for the listing.
-func dirBlock(header, dir string, entries []Entry, gc gitStatusCache) Block {
+func dirBlock(header, dir string, entries []Entry, gc *gitStatusCache) Block {
 	b := Block{Header: header, Dir: dir, Entries: entries, Directory: true}
 	if gc != nil {
 		b.GitRepo = gc.decorate(dir, entries)
@@ -162,7 +176,7 @@ func sortOperands(operands []operand, sort SortOptions) {
 	})
 }
 
-func listRecursive(dir string, opts ListOptions, errs *[]error, gc gitStatusCache) []Block {
+func listRecursive(dir string, opts ListOptions, errs *[]error, gc *gitStatusCache) []Block {
 	entries, err := readDirAt(dir, opts, errs)
 	if err != nil {
 		*errs = append(*errs, fmt.Errorf("%s: %w", dir, err))

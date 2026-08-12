@@ -2,24 +2,114 @@ package listing
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 // gitStatusCache shares one status computation per repository across all
 // directories of a single List call: repo discovery is a cheap upward stat
-// walk, but the git status subprocess scans the worktree and must run once.
+// walk, but the git subprocesses scan the worktree and must run once.
 // A nil info records a failed repo so it is not retried per directory.
-type gitStatusCache map[string]*repoGitInfo
+type gitStatusCache struct {
+	mu    sync.Mutex
+	repos map[string]*repoQuery
+	scope []string
+}
+
+const gitScopeMax = 64
+
+type repoQuery struct {
+	done chan struct{}
+	info *repoGitInfo
+}
+
+func newGitStatusCache(dirs []string) *gitStatusCache {
+	c := &gitStatusCache{repos: make(map[string]*repoQuery, 1)}
+	if len(dirs) > gitScopeMax {
+		return c
+	}
+	c.scope = make([]string, 0, len(dirs))
+	for _, dir := range dirs {
+		abs, err := repoPath(dir)
+		if err != nil {
+			c.scope = nil
+			return c
+		}
+		c.scope = append(c.scope, abs)
+	}
+	return c
+}
+
+func repoPath(dir string) (string, error) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	resolved, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return abs, nil
+	}
+	return resolved, nil
+}
+
+func (c *gitStatusCache) start(dir string) {
+	abs, err := repoPath(dir)
+	if err != nil {
+		return
+	}
+	if root := findRepoRoot(abs); root != "" {
+		c.query(root)
+	}
+}
+
+func (c *gitStatusCache) query(root string) *repoQuery {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if q, ok := c.repos[root]; ok {
+		return q
+	}
+	q := &repoQuery{done: make(chan struct{})}
+	c.repos[root] = q
+	pathspecs := c.pathspecs(root)
+	go func() {
+		defer close(q.done)
+		q.info = loadRepoGitInfo(root, pathspecs)
+	}()
+	return q
+}
+
+func (c *gitStatusCache) pathspecs(root string) []string {
+	if len(c.scope) == 0 {
+		return nil
+	}
+	specs := make([]string, 0, len(c.scope))
+	for _, dir := range c.scope {
+		rel, err := filepath.Rel(root, dir)
+		if err != nil {
+			return nil
+		}
+		if rel == "." {
+			return nil
+		}
+		if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			continue
+		}
+		specs = append(specs, filepath.ToSlash(rel))
+	}
+	if len(specs) == 0 {
+		return nil
+	}
+	return specs
+}
 
 // decorate fills GitState for entries listed from dir and reports whether
 // dir belongs to a git worktree. Any failure (not a repository, git missing)
 // leaves the entries untouched and returns false.
-func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
-	absDir, err := filepath.Abs(dir)
+func (c *gitStatusCache) decorate(dir string, entries []Entry) bool {
+	absDir, err := repoPath(dir)
 	if err != nil {
 		return false
 	}
@@ -28,11 +118,9 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 		return false
 	}
 
-	info, ok := c[root]
-	if !ok {
-		info = loadRepoGitInfo(root)
-		c[root] = info
-	}
+	q := c.query(root)
+	<-q.done
+	info := q.info
 	if info == nil {
 		return false
 	}
@@ -98,18 +186,8 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 	// Entries absent from the status maps are tracked-and-clean, ignored
 	// (plain status never lists ignored paths), or under a collapsed
 	// untracked directory, which git reports only as the directory itself.
-	// check-ignore resolves the ignored ones. Dot entries get the neutral
-	// cell so the divider line stays unbroken, and .git is shown ignored
-	// without asking git about it.
-	var unknown []string
-	for i := range entries {
-		e := &entries[i]
-		if e.GitState == (GitState{}) && e.Name != "." && e.Name != ".." && e.Name != ".git" {
-			unknown = append(unknown, e.Name)
-		}
-	}
-	ignored := ignoredNames(absDir, unknown)
-
+	// Dot entries get the neutral cell so the divider line stays unbroken,
+	// and .git is shown ignored without asking git about it.
 	clean := GitState{StatusUnmodified, StatusUnmodified}
 	for i := range entries {
 		e := &entries[i]
@@ -122,9 +200,10 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 		case ".git":
 			e.GitState = GitState{StatusIgnored, StatusIgnored}
 		default:
-			if ignored[e.Name] {
+			path := prefix + e.Name
+			if info.isIgnored(path) {
 				e.GitState = GitState{StatusIgnored, StatusIgnored}
-			} else if s, ok := info.collapsed(prefix + e.Name); ok {
+			} else if s, ok := info.collapsed(path); ok {
 				e.GitState = s
 			} else {
 				e.GitState = clean
@@ -132,49 +211,6 @@ func (c gitStatusCache) decorate(dir string, entries []Entry) bool {
 		}
 	}
 	return true
-}
-
-// ignoredNames reports which of the named entries in dir an ignore pattern
-// covers. status --ignored would answer this too, but it enumerates every
-// ignored tree in the repository (node_modules alone can dwarf the tracked
-// checkout), while check-ignore evaluates patterns against just these names.
-// Tracked hits are dropped: git keeps a tracked file in the worktree even
-// when a pattern matches it.
-func ignoredNames(dir string, names []string) map[string]bool {
-	if len(names) == 0 {
-		return nil
-	}
-	cmd := exec.Command("git", "-C", dir, "check-ignore", "--stdin", "-z")
-	cmd.Stdin = strings.NewReader(strings.Join(names, "\x00") + "\x00")
-	out, err := cmd.Output()
-	if err != nil {
-		// Exit status 1 only means no names matched.
-		var ee *exec.ExitError
-		if !errors.As(err, &ee) || ee.ExitCode() != 1 {
-			return nil
-		}
-	}
-
-	var hits []string
-	ignored := make(map[string]bool)
-	for name := range strings.SplitSeq(strings.TrimSuffix(string(out), "\x00"), "\x00") {
-		if name != "" {
-			hits = append(hits, name)
-			ignored[name] = true
-		}
-	}
-	if len(hits) == 0 {
-		return nil
-	}
-
-	args := append([]string{"-C", dir, "ls-files", "-z", "--"}, hits...)
-	if out, err := exec.Command("git", args...).Output(); err == nil {
-		for path := range strings.SplitSeq(string(out), "\x00") {
-			name, _, _ := strings.Cut(path, "/")
-			delete(ignored, name)
-		}
-	}
-	return ignored
 }
 
 // StatusCode is one column of a porcelain-v1 XY pair; the byte is git's
@@ -208,7 +244,25 @@ type repoGitInfo struct {
 	// dirs holds directories git reported collapsed because everything
 	// beneath them is untracked (trailing "/" stripped); their contents
 	// never appear in files.
-	dirs map[string]GitState
+	dirs         map[string]GitState
+	ignoredFiles map[string]bool
+	ignoredDirs  map[string]bool
+}
+
+func (info *repoGitInfo) isIgnored(path string) bool {
+	if info.ignoredFiles[path] {
+		return true
+	}
+	for {
+		if info.ignoredDirs[path] {
+			return true
+		}
+		i := strings.LastIndexByte(path, '/')
+		if i < 0 {
+			return false
+		}
+		path = path[:i]
+	}
 }
 
 // collapsed reports the status of the collapsed untracked directory that
@@ -242,21 +296,35 @@ func findRepoRoot(dir string) string {
 	}
 }
 
-// loadRepoGitInfo runs git status once for the repository rooted at root
-// and indexes its porcelain output.
-func loadRepoGitInfo(root string) *repoGitInfo {
-	out, err := exec.Command("git", "--no-optional-locks", "-C", root,
-		"status", "--porcelain", "-z").Output()
-	if err != nil {
+func loadRepoGitInfo(root string, pathspecs []string) *repoGitInfo {
+	var status, ignored []byte
+	var statusErr, ignoredErr error
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		status, statusErr = gitQuery(root, pathspecs, "status", "--porcelain", "-z")
+	}()
+	go func() {
+		defer wg.Done()
+		ignored, ignoredErr = gitQuery(root, pathspecs, "ls-files", "-z",
+			"--others", "--ignored", "--exclude-standard", "--directory")
+	}()
+	wg.Wait()
+
+	if statusErr != nil {
 		return nil
 	}
 	info := &repoGitInfo{
-		files: make(map[string]GitState),
-		dirs:  make(map[string]GitState),
+		files:        make(map[string]GitState),
+		dirs:         make(map[string]GitState),
+		ignoredFiles: make(map[string]bool),
+		ignoredDirs:  make(map[string]bool),
 	}
 	// Records are NUL-terminated "XY path"; staged renames and copies
 	// append the source path as an extra NUL-terminated field.
-	recs := strings.Split(string(out), "\x00")
+	recs := strings.Split(string(status), "\x00")
 	for i := 0; i < len(recs); i++ {
 		rec := recs[i]
 		if len(rec) < 4 || rec[2] != ' ' {
@@ -273,7 +341,30 @@ func loadRepoGitInfo(root string) *repoGitInfo {
 		}
 		info.files[path] = s
 	}
+	if ignoredErr == nil {
+		for path := range strings.SplitSeq(string(ignored), "\x00") {
+			if path == "" {
+				continue
+			}
+			if p, ok := strings.CutSuffix(path, "/"); ok {
+				info.ignoredDirs[p] = true
+				continue
+			}
+			info.ignoredFiles[path] = true
+		}
+	}
 	return info
+}
+
+func gitQuery(root string, pathspecs []string, args ...string) ([]byte, error) {
+	full := make([]string, 0, len(args)+len(pathspecs)+5)
+	full = append(full, "--no-optional-locks", "--literal-pathspecs", "-C", root)
+	full = append(full, args...)
+	if len(pathspecs) > 0 {
+		full = append(full, "--")
+		full = append(full, pathspecs...)
+	}
+	return exec.Command("git", full...).Output()
 }
 
 // foldStatusCode merges a child's code into a directory aggregate, per
